@@ -1,0 +1,294 @@
+#ifndef AUTO_CONFIG_H
+#define AUTO_CONFIG_H
+
+/* Define to the type of arg 1 of 'accept' */
+#define ACCEPT_TYPE_ARG1 @ACCEPT_TYPE_ARG1@
+
+/* Define to the type of arg 2 of 'accept' */
+#define ACCEPT_TYPE_ARG2 @ACCEPT_TYPE_ARG2@
+
+/* Define to the type of arg 3 of 'accept' */
+#define ACCEPT_TYPE_ARG3 @ACCEPT_TYPE_ARG3@
+
+/* Define to the return type of 'accept' */
+#define ACCEPT_TYPE_RETURN @ACCEPT_TYPE_RETURN@
+
+/* The normal alignment of `double', in bytes. */
+#define ALIGNOF_DOUBLE @ALIGNOF_DOUBLE@
+
+/* The normal alignment of `int', in bytes. */
+#define ALIGNOF_INT @ALIGNOF_INT@
+
+/* The normal alignment of `long', in bytes. */
+#define ALIGNOF_LONG @ALIGNOF_LONG@
+
+/* The normal alignment of `long long int', in bytes. */
+#define ALIGNOF_LONG_LONG_INT @ALIGNOF_LONG_LONG_INT@
+
+/* The normal alignment of `short', in bytes. */
+#define ALIGNOF_SHORT @ALIGNOF_SHORT@
+
+#define SIZEOF_VOID_P @CMAKE_SIZEOF_VOID_P@
+
+#define SIZEOF_LONG @SIZEOF_LONG@
+
+#define SIZEOF_SIZE_T @SIZEOF_SIZE_T@
+
+#cmakedefine HAVE_INT128
+
+#define PG_INT128_TYPE @PG_INT128_TYPE@
+
+#ifdef WIN32
+#undef PG_INT128_TYPE
+#endif
+
+/* Size of a disk block --- this also limits the size of a tuple. You can set
+   it bigger if you need bigger tuples (although TOAST should reduce the need
+   to have large tuples, since fields can be spread across multiple tuples).
+   BLCKSZ must be a power of 2. The maximum possible value of BLCKSZ is
+   currently 2^15 (32768). This is determined by the 15-bit widths of the
+   lp_off and lp_len fields in ItemIdData (see include/storage/itemid.h).
+   Changing BLCKSZ requires an initdb. */
+#define BLCKSZ @BLCKSZ@
+
+#define XLOG_BLCKSZ @XLOG_BLCKSZ@
+
+#define XLOG_SEG_SIZE @XLOG_SEG_SIZE@
+
+#define RELSEG_SIZE @RELSEG_SIZE@
+
+/* Define to the default TCP port number on which the server listens and to
+   which clients will try to connect. This can be overridden at run-time, but
+   it's convenient if your clients have the right default compiled in.
+   (-DPGPORT=PORTNUM) */
+#define DEF_PGPORT @PGPORT@
+
+/* Define to the default TCP port number as a string constant. */
+#define DEF_PGPORT_STR "@PGPORT@"
+
+/* Define to build with GSSAPI support. (--with-gssapi) */
+//#undef ENABLE_GSS
+
+#cmakedefine ENABLE_NLS
+
+#cmakedefine ENABLE_THREAD_SAFETY
+
+#define FLEXIBLE_ARRAY_MEMBER @FLEXIBLE_ARRAY_MEMBER@
+
+#define FLOAT4PASSBYVAL @FLOAT4PASSBYVAL@
+
+#define FLOAT8PASSBYVAL @FLOAT8PASSBYVAL@
+
+#cmakedefine USE_FLOAT4_BYVAL
+
+#cmakedefine USE_FLOAT8_BYVAL
+
+#cmakedefine GETTIMEOFDAY_1ARG
+
+#cmakedefine HAVE_INT_TIMEZONE
+#cmakedefine HAVE_STRUCT_TM_TM_ZONE 1
+#cmakedefine HAVE_TM_ZONE 1
+#cmakedefine HAVE_TZNAME
+
+#cmakedefine USE_NAMED_POSIX_SEMAPHORES
+#cmakedefine USE_UNNAMED_POSIX_SEMAPHORES
+#cmakedefine USE_SYSV_SEMAPHORES
+#cmakedefine USE_WIN32_SEMAPHORES
+#cmakedefine USE_SYSV_SHARED_MEMORY
+#cmakedefine HAVE_ATOMICS
+#cmakedefine HAVE_SPINLOCKS
+
+/* Define to 1 if `long int' works and is 64 bits. */
+#cmakedefine HAVE_LONG_INT_64
+
+/* Define to 1 if the system has the type `long long int'. */
+#cmakedefine HAVE_LONG_LONG_INT
+
+/* Define to 1 if `long long int' works and is 64 bits. */
+#cmakedefine HAVE_LONG_LONG_INT_64
+
+#cmakedefine HAVE_INT64
+
+#cmakedefine HAVE_UINT64
+
+#cmakedefine HAVE_INT8
+
+#define PG_INT64_TYPE @PG_INT64_TYPE@
+
+#define PG_PRINTF_ATTRIBUTE @PG_PRINTF_ATTRIBUTE@
+
+#define LONG_LONG_INT_MODIFIER @LONG_LONG_INT_MODIFIER@
+#define INT64_MODIFIER "@LONG_LONG_INT_MODIFIER@"
+
+#cmakedefine HAVE_IEEEFP_H @HAVE_IEEEFP_H@
+
+#cmakedefine HAVE_WCHAR_H 1
+
+#cmakedefine HAVE_WCTYPE_H
+
+#cmakedefine HAVE_WINLDAP_H
+
+#cmakedefine HAVE_LL_CONSTANTS
+
+#define POSTGRES_MAJOR_VERSION @POSTGRES_MAJOR_VERSION@
+#define POSTGRES_MINOR_VERSION @POSTGRES_MINOR_VERSION@
+#define POSTGRES_PATCH_VERSION @POSTGRES_PATCH_VERSION@
+#define PG_MAJORVERSION "@POSTGRES_MAJOR_VERSION@.@POSTGRES_MINOR_VERSION@"
+
+/* PostgreSQL version as a string */
+#define PG_VERSION "@PG_VERSION@"
+
+#define PG_VERSION_NUM @PG_VERSION_NUM@
+
+/*TODO*/
+#define PG_VERSION_STR "PostgreSQL @PG_VERSION@ on $host, compiled by $cc_string, cool-bit"
+
+/* Define bytes to use libc memset(). */
+#define MEMSET_LOOP_LIMIT @MEMSET_LOOP_LIMIT@
+
+#cmakedefine HAVE_STRUCT_ADDRINFO
+#cmakedefine HAVE_STRUCT_SOCKADDR_STORAGE
+#cmakedefine HAVE_GETADDRINFO 1
+
+#cmakedefine HAVE_STRUCT_SOCKADDR_SA_LEN
+#cmakedefine HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY
+#cmakedefine HAVE_STRUCT_SOCKADDR_STORAGE___SS_FAMILY
+#cmakedefine HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN
+#cmakedefine HAVE_STRUCT_SOCKADDR_STORAGE___SS_LEN
+
+#cmakedefine HAVE_UNIX_SOCKETS
+#cmakedefine HAVE_IPV6
+
+#cmakedefine HAVE_UNION_SEMUN
+
+#define MAXIMUM_ALIGNOF @MAXIMUM_ALIGNOF@
+
+#cmakedefine HAVE_HISTORY_H
+#cmakedefine HAVE_READLINE_H
+#cmakedefine HAVE_READLINE_HISTORY_H
+#cmakedefine HAVE_READLINE_READLINE_H
+#cmakedefine HAVE_EDITLINE_HISTORY_H
+#cmakedefine HAVE_EDITLINE_READLINE_H
+#cmakedefine HAVE_RL_COMPLETION_MATCHES 1
+#cmakedefine HAVE_RL_FILENAME_COMPLETION_FUNCTION
+#cmakedefine HAVE_SYS_RESOURCE_H 1
+#cmakedefine HAVE_SYS_SELECT_H 1
+#cmakedefine HAVE_SYS_POLL_H 1
+#cmakedefine HAVE_SYS_PSTAT_H
+#cmakedefine HAVE_LANGINFO_H 1
+#cmakedefine HAVE_DLD_H
+#cmakedefine HAVE_DLOPEN 1
+
+#ifdef GETTIMEOFDAY_1ARG
+#	define gettimeofday(a,b) gettimeofday(a)
+#endif
+
+#ifdef __APPLE__
+#	if __BIG_ENDIAN
+#		define WORDS_BIGENDIAN 1
+#	endif
+#else
+#cmakedefine WORDS_BIGENDIAN 1 
+#endif
+
+#define HAVE_DECL_STRLCAT @HAVE_DECL_STRLCAT@
+#define HAVE_DECL_STRLCPY @HAVE_DECL_STRLCPY@
+
+#define HAVE_DECL_SNPRINTF @HAVE_DECL_SNPRINTF@
+#define HAVE_DECL_VSNPRINTF @HAVE_DECL_VSNPRINTF@
+
+#cmakedefine HAVE_UNSETENV 1
+
+#cmakedefine HAVE_SRANDOM
+
+/* Define to 1 if you have the `getpeereid' function. */
+#cmakedefine HAVE_GETPEEREID
+
+/* Define to 1 if you have the `getpeerucred' function. */
+#cmakedefine HAVE_GETPEERUCRED
+
+/* Define if you have a function readline library */
+#cmakedefine HAVE_LIBREADLINE 1
+
+/* Define to 1 if you have the <ucred.h> header file. */
+#cmakedefine HAVE_UCRED_H
+
+/* Define to 1 if you have the <sys/ucred.h> header file. */
+#cmakedefine HAVE_SYS_UCRED_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#cmakedefine HAVE_SYS_UN_H 1
+
+#cmakedefine HAVE_SYMLINK 1
+
+#cmakedefine HAVE_SSL_GET_CURRENT_COMPRESSION
+#cmakedefine USE_OPENSSL
+
+#define DLSUFFIX "@CMAKE_SHARED_LIBRARY_SUFFIX@"
+
+#cmakedefine HAVE_SYS_IPC_H
+#cmakedefine HAVE_SYS_SEM_H
+#cmakedefine HAVE_SYS_SHM_H
+
+#cmakedefine HAVE_SYS_STAT_H 1
+#cmakedefine HAVE_FDATASYNC 1
+
+#cmakedefine HAVE_FLS
+
+#cmakedefine HAVE_SHM_OPEN
+
+#cmakedefine HAVE_GETRUSAGE
+
+#cmakedefine USE_INTEGER_DATETIMES
+
+#cmakedefine HAVE_LOCALE_T
+
+#cmakedefine HAVE_ISINF
+
+#cmakedefine HAVE_FSEEKO 1
+
+#cmakedefine HAVE_RINT
+
+#cmakedefine HAVE_MEMMOVE 1
+
+#cmakedefine HAVE__GET_CPUID
+
+#cmakedefine HAVE__CPUID
+
+#cmakedefine USE_SSE42_CRC32C_WITH_RUNTIME_CHECK
+
+#cmakedefine HAVE_FUNCNAME__FUNC
+#cmakedefine HAVE_FUNCNAME__FUNCTION
+
+#cmakedefine HAVE_MBSTOWCS_L
+
+#cmakedefine HAVE_PWD_H
+
+#cmakedefine HAVE_TOWLOWER
+
+#cmakedefine HAVE_WCSTOMBS_L
+
+#cmakedefine HAVE_WCSTOMBS
+
+#cmakedefine HAVE__VA_ARGS
+
+#cmakedefine HAVE_UUID_OSSP
+
+#cmakedefine HAVE_UUID_BSD
+
+#cmakedefine HAVE_UUID_E2FS
+
+#cmakedefine HAVE_LIBXML2
+
+/* Define to 1 if you have the `xslt' library (-lxslt). */
+#cmakedefine HAVE_LIBXSLT
+
+#cmakedefine USE_LIBXML
+
+#cmakedefine HAVE_LIBZ
+
+#define PG_KRB_SRVNAM "@PG_KRB_SRVNAM@"
+
+#include "@pgos_include_SRCS@"
+
+#endif  // AUTO_CONFIG_H
