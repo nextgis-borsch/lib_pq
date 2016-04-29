@@ -56,3 +56,5 @@ add_subdirectory(interfaces/libpq)
 ###add_subdirectory(bin/pgbench)
 ###add_subdirectory(bin/psql)
 ###add_subdirectory(bin/scripts)
+
+set(EXPORT_TARGETS ${EXPORT_TARGETS} PARENT_SCOPE)
