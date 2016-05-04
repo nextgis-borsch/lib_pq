@@ -244,6 +244,19 @@ set(EXPORT_TARGETS)
 add_subdirectory(src)
 ###add_subdirectory(contrib)
 
+### Install other headers.
+# These headers are needed by the public headers of the interfaces.
+install(FILES
+	src/include/postgres_ext.h
+	${PROJECT_BINARY_DIR}/src/include/pg_config.h
+	${PROJECT_BINARY_DIR}/src/include/pg_config_ext.h
+	${PROJECT_BINARY_DIR}/src/include/pg_config_os.h
+###	src/include/pg_config_manual.h
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES
+	src/include/libpq/libpq-fs.h
+	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libpq)
+
 ### Finally export libpq.
 if(EXPORT_TARGETS)
     export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake EXPORT_LINK_INTERFACE_LIBRARIES)
