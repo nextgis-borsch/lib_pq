@@ -74,6 +74,13 @@ function(include_exports_path include_path)
     if(PATH_INDEX EQUAL -1)
         list(APPEND EXPORTS_PATHS "${include_path}")
         set(EXPORTS_PATHS "${EXPORTS_PATHS}" PARENT_SCOPE)
+        # Add imported library have limit scope
+        # During the export cmake add library without GLOBAL parameter and no
+        # way to change this bihaviour. Let's fix it.
+        file (READ ${include_path} _file_content)
+        string (REPLACE "IMPORTED)" "IMPORTED GLOBAL)" _file_content "${_file_content}")
+        file(WRITE ${include_path} "${_file_content}") 
+        
         include(${include_path})
     endif()
 endfunction() 
@@ -125,14 +132,15 @@ function(find_extproject name)
     if(_list_size EQUAL 0)
         list(APPEND find_extproject_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EP_BASE}/Install/${name}_EP)
     endif()
+    unset(_matchedVars)
     
     # search BUILD_SHARED_LIBS
     string (REGEX MATCHALL "(^|;)-DBUILD_SHARED_LIBS[A-Za-z0-9_]*" _matchedVars "${find_extproject_CMAKE_ARGS}")   
-    unset(_matchedVars)
     list(LENGTH _matchedVars _list_size)    
     if(_list_size EQUAL 0)
         list(APPEND find_extproject_CMAKE_ARGS -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS})
     endif()
+    unset(_matchedVars)
     
     # set some arguments  
     if(CMAKE_GENERATOR)        
@@ -184,6 +192,9 @@ function(find_extproject name)
       return()
     endif()
    
+    set(RECONFIGURE OFF)
+    set(INCLUDE_EXPORT_PATH "${EP_BASE}/Build/${name}_EP/${repo_project}-exports.cmake")
+
     if(NOT EXISTS "${EP_BASE}/Source/${name}_EP/.git")
         color_message("Git clone ${repo_name} ...")
         execute_process(COMMAND ${GIT_EXECUTABLE} clone ${EP_URL}/${repo_name} ${name}_EP
@@ -191,22 +202,33 @@ function(find_extproject name)
         #execute_process(COMMAND ${GIT_EXECUTABLE} checkout master
         #    WORKING_DIRECTORY  ${EP_BASE}/Source/${name}_EP)
         file(WRITE ${EP_BASE}/Stamp/${name}_EP/${name}_EP-gitclone-lastrun.txt "")
+        set(RECONFIGURE ON)
     else() 
-        check_updates(${EP_BASE}/Stamp/${name}_EP/${name}_EP-gitpull.txt ${PULL_UPDATE_PERIOD} CHECK_UPDATES)
+        if(EXISTS ${INCLUDE_EXPORT_PATH})
+            check_updates(${EP_BASE}/Stamp/${name}_EP/${name}_EP-gitpull.txt ${PULL_UPDATE_PERIOD} CHECK_UPDATES)
+        else()
+            set(CHECK_UPDATES ON)
+        endif()
         if(CHECK_UPDATES)
             color_message("Git pull ${repo_name} ...")
             execute_process(COMMAND ${GIT_EXECUTABLE} pull
                WORKING_DIRECTORY  ${EP_BASE}/Source/${name}_EP
-               TIMEOUT ${PULL_TIMEOUT})
-            file(WRITE ${EP_BASE}/Stamp/${name}_EP/${name}_EP-gitpull.txt "")              
+               TIMEOUT ${PULL_TIMEOUT} OUTPUT_VARIABLE OUT_STR)
+           if(OUT_STR)
+                string(FIND ${OUT_STR} "Already up-to-date" STR_POS)
+                if(STR_POS LESS 0)
+                    set(RECONFIGURE ON)
+                endif()
+                file(WRITE ${EP_BASE}/Stamp/${name}_EP/${name}_EP-gitpull.txt "")
+            endif()
         endif()        
     endif() 
 
-    execute_process(COMMAND ${CMAKE_COMMAND} ${EP_BASE}/Source/${name}_EP
-       ${find_extproject_CMAKE_ARGS}
-       WORKING_DIRECTORY ${EP_BASE}/Build/${name}_EP)         
-    
-    set(INCLUDE_EXPORT_PATH "${EP_BASE}/Build/${name}_EP/${repo_project}-exports.cmake")
+    if(RECONFIGURE)
+        execute_process(COMMAND ${CMAKE_COMMAND} ${EP_BASE}/Source/${name}_EP
+            ${find_extproject_CMAKE_ARGS}
+            WORKING_DIRECTORY ${EP_BASE}/Build/${name}_EP)         
+    endif()
     
     if(EXISTS ${INCLUDE_EXPORT_PATH})
         get_imported_targets(${INCLUDE_EXPORT_PATH} IMPORTED_TARGETS)
