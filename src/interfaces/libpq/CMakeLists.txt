@@ -40,8 +40,9 @@ set(pq_SRCS
 	${pq_ssl_SRCS}
 )
 
-set(RES_FILES "")
 if(WIN32)
+	configure_file(libpq.rc.in ${CMAKE_CURRENT_BINARY_DIR}/libpq.rc)
+	configure_file(exports.txt ${CMAKE_CURRENT_BINARY_DIR}/exports.def COPYONLY)
 	set(pq_SRCS ${pq_SRCS} 
 		win32.c
 		${PORT_DIR}/win32error.c
@@ -52,31 +53,25 @@ if(WIN32)
 		${PORT_DIR}/inet_aton.c
 		${PORT_DIR}/thread.c
 		${PORT_DIR}/getaddrinfo.c
+		${CMAKE_CURRENT_BINARY_DIR}/exports.def
+		${CMAKE_CURRENT_BINARY_DIR}/libpq.rc
 	)
 	if (Threads_FOUND)
 		set(pq_SRCS ${pq_SRCS} pthread-win32.c)
 	endif()
-	set(RES_FILES "libpq.rc")
-	set(CMAKE_RC_COMPILER_INIT windres)
-	ENABLE_LANGUAGE(RC)
-	SET(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> <FLAGS> -O coff <DEFINES> -i <SOURCE> -o <OBJECT>")
 endif()
 
-add_library(${LIB_NAME} ${LIB_TYPE} ${pq_SRCS} ${RES_FILES})
+add_library(${LIB_NAME} ${LIB_TYPE} ${pq_SRCS})
 
 target_link_extlibraries(${LIB_NAME})
 
 if(WIN32)
 	target_link_libraries(${LIB_NAME}
-		#port
 		Secur32
 		ws2_32
 	)
 endif()
 
-if(USE_OPENSSL)
-	###target_include_directories(${LIB_NAME} PUBLIC ${OPENSSL_INCLUDE_DIR})
-endif()
 target_compile_definitions(${LIB_NAME} PRIVATE -DFRONTEND -DUNSAFE_STAT_OK)
 
 #TODO 
