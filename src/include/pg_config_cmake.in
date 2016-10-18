@@ -289,6 +289,6 @@
 
 #define PG_KRB_SRVNAM "@PG_KRB_SRVNAM@"
 
-#include "@pgos_include_SRCS@"
+// #include "@pgos_include_SRCS@"
 
 #endif  // AUTO_CONFIG_H
