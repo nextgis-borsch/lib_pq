@@ -235,13 +235,11 @@ endif()
 
 
 ### Define lib name in a common way.
-set(LIB_NAME)
+set(LIB_NAME ${PROJECT_NAME})
 if(BUILD_SHARED_LIBS)
     set(LIB_TYPE SHARED)
-    set(LIB_NAME ${PROJECT_NAME})
 else()
     set(LIB_TYPE STATIC)
-    set(LIB_NAME ${PROJECT_NAME}static)
 endif()
 
 set(EXPORT_TARGETS)
