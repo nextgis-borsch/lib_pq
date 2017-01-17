@@ -1,6 +1,4 @@
-### CMake Postgres project: only for libpq external library. 
-
-include_directories("${PROJECT_SOURCE_DIR}/src/include")
+### CMake Postgres project: only for libpq external library.
 
 ###set(gen_errorcodes_depend
 ###	${PROJECT_SOURCE_DIR}/src/backend/utils/errcodes.txt
@@ -58,3 +56,4 @@ add_subdirectory(interfaces/libpq)
 ###add_subdirectory(bin/scripts)
 
 set(EXPORT_TARGETS ${EXPORT_TARGETS} PARENT_SCOPE)
+any_project_var_to_parent_scope()

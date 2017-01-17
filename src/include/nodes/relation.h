@@ -50,12 +50,15 @@ typedef struct QualCost
  * Costing aggregate function execution requires these statistics about
  * the aggregates to be executed by a given Agg node.  Note that the costs
  * include the execution costs of the aggregates' argument expressions as
- * well as the aggregate functions themselves.
+ * well as the aggregate functions themselves.  Also, the fields must be
+ * defined so that initializing the struct to zeroes with memset is correct.
  */
 typedef struct AggClauseCosts
 {
 	int			numAggs;		/* total number of aggregate functions */
 	int			numOrderedAggs; /* number w/ DISTINCT/ORDER BY/WITHIN GROUP */
+	bool		hasNonPartial;	/* does any agg not support partial mode? */
+	bool		hasNonSerial;	/* is any partial agg non-serializable? */
 	QualCost	transCost;		/* total per-input-row execution costs */
 	Cost		finalCost;		/* total per-aggregated-row costs */
 	Size		transitionSpace;	/* space for pass-by-ref transition data */
@@ -118,15 +121,11 @@ typedef struct PlannerGlobal
 
 	bool		transientPlan;	/* redo plan when TransactionXmin changes? */
 
-	bool		hasRowSecurity; /* row security applied? */
+	bool		dependsOnRole;	/* is plan specific to current role? */
 
 	bool		parallelModeOK; /* parallel mode potentially OK? */
 
 	bool		parallelModeNeeded;		/* parallel mode actually required? */
-
-	bool		wholePlanParallelSafe;	/* is the entire plan parallel safe? */
-
-	bool		hasForeignJoin;	/* does have a pushed down foreign join */
 } PlannerGlobal;
 
 /* macro for fetching the Plan associated with a SubPlan node */
@@ -250,6 +249,8 @@ typedef struct PlannerInfo
 	List	   *rowMarks;		/* list of PlanRowMarks */
 
 	List	   *placeholder_list;		/* list of PlaceHolderInfos */
+
+	List	   *fkey_list;		/* list of ForeignKeyOptInfos */
 
 	List	   *query_pathkeys; /* desired pathkeys for query_planner() */
 
@@ -423,11 +424,12 @@ typedef struct PlannerInfo
  *		in just as for a baserel, except we don't bother with lateral_vars.
  *
  * If the relation is either a foreign table or a join of foreign tables that
- * all belong to the same foreign server and use the same user mapping, these
- * fields will be set:
+ * all belong to the same foreign server and are assigned to the same user to
+ * check access permissions as (cf checkAsUser), these fields will be set:
  *
  *		serverid - OID of foreign server, if foreign table (else InvalidOid)
- *		umid - OID of user mapping, if foreign table (else InvalidOid)
+ *		userid - OID of user to check access as (InvalidOid means current user)
+ *		useridiscurrent - we've assumed that userid equals current user
  *		fdwroutine - function hooks for FDW, if foreign table (else NULL)
  *		fdw_private - private state for FDW, if foreign table (else NULL)
  *
@@ -494,7 +496,7 @@ typedef struct RelOptInfo
 	/* materialization information */
 	List	   *pathlist;		/* Path structures */
 	List	   *ppilist;		/* ParamPathInfos used in pathlist */
-	List	   *partial_pathlist;	/* partial Paths */
+	List	   *partial_pathlist;		/* partial Paths */
 	struct Path *cheapest_startup_path;
 	struct Path *cheapest_total_path;
 	struct Path *cheapest_unique_path;
@@ -521,10 +523,12 @@ typedef struct RelOptInfo
 	double		allvisfrac;
 	PlannerInfo *subroot;		/* if subquery */
 	List	   *subplan_params; /* if subquery */
+	int			rel_parallel_workers;	/* wanted number of parallel workers */
 
 	/* Information about foreign tables and foreign joins */
 	Oid			serverid;		/* identifies server for the table or join */
-	Oid			umid;			/* identifies user mapping for the table or join */
+	Oid			userid;			/* identifies user to check access as */
+	bool		useridiscurrent;	/* join is only valid for current user */
 	/* use "struct FdwRoutine" to avoid including fdwapi.h here */
 	struct FdwRoutine *fdwroutine;
 	void	   *fdw_private;
@@ -563,6 +567,10 @@ typedef struct RelOptInfo
  *		indextlist is a TargetEntry list representing the index columns.
  *		It provides an equivalent base-relation Var for each simple column,
  *		and links to the matching indexprs element for each expression column.
+ *
+ *		While most of these fields are filled when the IndexOptInfo is created
+ *		(by plancat.c), indrestrictinfo and predOK are set later, in
+ *		check_index_predicates().
  */
 typedef struct IndexOptInfo
 {
@@ -595,7 +603,12 @@ typedef struct IndexOptInfo
 
 	List	   *indextlist;		/* targetlist representing index columns */
 
-	bool		predOK;			/* true if predicate matches query */
+	List	   *indrestrictinfo;/* parent relation's baserestrictinfo list,
+								 * less any conditions implied by the index's
+								 * predicate (unless it's a target rel, see
+								 * comments in check_index_predicates()) */
+
+	bool		predOK;			/* true if index predicate matches query */
 	bool		unique;			/* true if a unique index */
 	bool		immediate;		/* is uniqueness enforced immediately? */
 	bool		hypothetical;	/* true if index doesn't really exist */
@@ -610,6 +623,36 @@ typedef struct IndexOptInfo
 	/* Rather than include amapi.h here, we declare amcostestimate like this */
 	void		(*amcostestimate) ();	/* AM's cost estimator */
 } IndexOptInfo;
+
+/*
+ * ForeignKeyOptInfo
+ *		Per-foreign-key information for planning/optimization
+ *
+ * The per-FK-column arrays can be fixed-size because we allow at most
+ * INDEX_MAX_KEYS columns in a foreign key constraint.  Each array has
+ * nkeys valid entries.
+ */
+typedef struct ForeignKeyOptInfo
+{
+	NodeTag		type;
+
+	/* Basic data about the foreign key (fetched from catalogs): */
+	Index		con_relid;		/* RT index of the referencing table */
+	Index		ref_relid;		/* RT index of the referenced table */
+	int			nkeys;			/* number of columns in the foreign key */
+	AttrNumber	conkey[INDEX_MAX_KEYS]; /* cols in referencing table */
+	AttrNumber	confkey[INDEX_MAX_KEYS];		/* cols in referenced table */
+	Oid			conpfeqop[INDEX_MAX_KEYS];		/* PK = FK operator OIDs */
+
+	/* Derived info about whether FK's equality conditions match the query: */
+	int			nmatched_ec;	/* # of FK cols matched by ECs */
+	int			nmatched_rcols; /* # of FK cols matched by non-EC rinfos */
+	int			nmatched_ri;	/* total # of non-EC rinfos matched to FK */
+	/* Pointer to eclass matching each column's condition, if there is one */
+	struct EquivalenceClass *eclass[INDEX_MAX_KEYS];
+	/* List of non-EC RestrictInfos matching each column's condition */
+	List	   *rinfos[INDEX_MAX_KEYS];
+} ForeignKeyOptInfo;
 
 
 /*
@@ -772,6 +815,10 @@ typedef struct PathTarget
 	int			width;			/* estimated avg width of result tuples */
 } PathTarget;
 
+/* Convenience macro to get a sort/group refno from a PathTarget */
+#define get_pathtarget_sortgroupref(target, colno) \
+	((target)->sortgrouprefs ? (target)->sortgrouprefs[colno] : (Index) 0)
+
 
 /*
  * ParamPathInfo
@@ -839,7 +886,8 @@ typedef struct Path
 
 	bool		parallel_aware; /* engage parallel-aware logic? */
 	bool		parallel_safe;	/* OK to use as part of parallel plan? */
-	int			parallel_degree; /* desired parallel degree; 0 = not parallel */
+	int			parallel_workers;		/* desired # of workers; 0 = not
+										 * parallel */
 
 	/* estimated size/costs for path (see costsize.c for more info) */
 	double		rows;			/* estimated number of result tuples */
@@ -997,7 +1045,8 @@ typedef struct SubqueryScanPath
 } SubqueryScanPath;
 
 /*
- * ForeignPath represents a potential scan of a foreign table
+ * ForeignPath represents a potential scan of a foreign table, foreign join
+ * or foreign upper-relation.
  *
  * fdw_private stores FDW private data about the scan.  While fdw_private is
  * not actually touched by the core code during normal operations, it's
@@ -1030,31 +1079,17 @@ typedef struct ForeignPath
  * FDW case, we provide a "custom_private" field in CustomPath; providers
  * may prefer to use that rather than define another struct type.
  */
-struct CustomPath;
 
-#define CUSTOMPATH_SUPPORT_BACKWARD_SCAN	0x0001
-#define CUSTOMPATH_SUPPORT_MARK_RESTORE		0x0002
-
-typedef struct CustomPathMethods
-{
-	const char *CustomName;
-
-	/* Convert Path to a Plan */
-	struct Plan *(*PlanCustomPath) (PlannerInfo *root,
-												RelOptInfo *rel,
-												struct CustomPath *best_path,
-												List *tlist,
-												List *clauses,
-												List *custom_plans);
-} CustomPathMethods;
+struct CustomPathMethods;
 
 typedef struct CustomPath
 {
 	Path		path;
-	uint32		flags;			/* mask of CUSTOMPATH_* flags, see above */
+	uint32		flags;			/* mask of CUSTOMPATH_* flags, see
+								 * nodes/extensible.h */
 	List	   *custom_paths;	/* list of child Path nodes, if any */
 	List	   *custom_private;
-	const CustomPathMethods *methods;
+	const struct CustomPathMethods *methods;
 } CustomPath;
 
 /*
@@ -1240,15 +1275,22 @@ typedef struct HashPath
 /*
  * ProjectionPath represents a projection (that is, targetlist computation)
  *
- * This path node represents using a Result plan node to do a projection.
- * It's only needed atop a node that doesn't support projection (such as
- * Sort); otherwise we just jam the new desired PathTarget into the lower
- * path node, and adjust that node's estimated cost accordingly.
+ * Nominally, this path node represents using a Result plan node to do a
+ * projection step.  However, if the input plan node supports projection,
+ * we can just modify its output targetlist to do the required calculations
+ * directly, and not need a Result.  In some places in the planner we can just
+ * jam the desired PathTarget into the input path node (and adjust its cost
+ * accordingly), so we don't need a ProjectionPath.  But in other places
+ * it's necessary to not modify the input path node, so we need a separate
+ * ProjectionPath node, which is marked dummy to indicate that we intend to
+ * assign the work to the input plan node.  The estimated cost for the
+ * ProjectionPath node will account for whether a Result will be used or not.
  */
 typedef struct ProjectionPath
 {
 	Path		path;
 	Path	   *subpath;		/* path representing input source */
+	bool		dummypp;		/* true if no separate Result is needed */
 } ProjectionPath;
 
 /*
@@ -1306,6 +1348,7 @@ typedef struct AggPath
 	Path		path;
 	Path	   *subpath;		/* path representing input source */
 	AggStrategy aggstrategy;	/* basic strategy, see nodes.h */
+	AggSplit	aggsplit;		/* agg-splitting mode, see nodes.h */
 	double		numGroups;		/* estimated number of groups in input */
 	List	   *groupClause;	/* a list of SortGroupClause's */
 	List	   *qual;			/* quals (HAVING quals), if any */

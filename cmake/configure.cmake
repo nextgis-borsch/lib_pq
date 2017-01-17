@@ -1,4 +1,7 @@
-### CMake Postgres project: only for libpq external library. 
+### CMake Postgres project: only for libpq external library.
+if(NOT PGPORT)
+	set(PGPORT 5432)
+endif(NOT PGPORT)
 
 include(CheckTypeSize)
 include(CheckSymbolExists)
@@ -66,16 +69,6 @@ check_function_exists(shm_open HAVE_SHM_OPEN)
 set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};sys/time.h;sys/resource.h")
 check_function_exists(getrusage HAVE_GETRUSAGE)
 
-
-if(OPENSSL_FOUND)
-    if(WITH_OpenSSL_EXTERNAL)
-        add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION) ### for our external system we know it definitely
-    else()
-        check_function_exists(SSL_get_current_compression HAVE_SSL_GET_CURRENT_COMPRESSION)
-    endif()    
-endif(OPENSSL_FOUND)
-
-
 check_include_files(sys/un.h HAVE_SYS_UN_H)
 check_include_files(ucred.h HAVE_UCRED_H)
 check_include_files(sys/ucred.h HAVE_SYS_UCRED_H)
@@ -138,7 +131,6 @@ if(PG_INT128_TYPE AND NOT WIN32)
 	set(PG_INT128_TYPE __int128)
 endif()
 
-
 set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};locale.h")
 check_type_size("locale_t" HAVE_LOCALE_T)
 
@@ -192,7 +184,9 @@ endif()
 option(FLOAT4PASSBYVAL "float4 values are passed by value" ON)
 if(FLOAT4PASSBYVAL)
 	set(FLOAT4PASSBYVAL 1)
-endif(FLOAT4PASSBYVAL)
+else()
+    unset(FLOAT4PASSBYVAL)
+endif()
 option(USE_FLOAT4_BYVAL "float4 values are passed by value" ON)
 
 
@@ -204,7 +198,7 @@ elseif(NOT FLOAT8PASSBYVAL AND VOID_POINTER_SIZE EQUAL 8)
 else()
 	set(FLOAT8PASSBYVAL 0)
 	set(USE_FLOAT8_BYVAL 0)
-endif(FLOAT8PASSBYVAL AND NOT (VOID_POINTER_SIZE EQUAL 8))
+endif()
 
 
 include(CheckFlexibleArray)
@@ -468,56 +462,96 @@ message(STATUS "XLOG_SEG_SIZE - ${XLOG_SEG_SIZE}")
 
 
 ### Generate configure files:
+macro(create_pg_config_os INPUT_PATH)
+    configure_file(${INPUT_PATH} ${PROJECT_BINARY_DIR}/src/include/pg_config_os.h COPYONLY)
+endmacro()
 
 # Need add sco and unixware?
 if(WIN32)
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/win32.h)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/win32.h)
 elseif(APPLE)
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/darwin.h)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/darwin.h)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/linux.h)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/linux.h)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/hpux.h)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/hpux.h)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/freebsd.h)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/freebsd.h)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/openbsd.h)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/openbsd.h)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
-	set(pgos_include_SRCS ${PROJECT_SOURCE_DIR}/src/include/port/newtbsd.h)
-else(WIN32)
+	create_pg_config_os(${PROJECT_SOURCE_DIR}/src/include/port/newtbsd.h)
+else()
 	message(WARNING "${CMAKE_SYSTEM_NAME}")
-endif(WIN32)
-file(GENERATE OUTPUT ${PROJECT_BINARY_DIR}/src/include/pg_config_os.h
-    INPUT ${pgos_include_SRCS})
+endif()
 
-###if(WIN32)
-###    configure_file(
-###        "${PROJECT_SOURCE_DIR}/src/include/pg_config.h.win32"
-###        "${PROJECT_BINARY_DIR}/src/include/pg_config.h"
-###    )
-###    configure_file(
-###        "${PROJECT_SOURCE_DIR}/src/include/pg_config_ext.h.win32"
-###        "${PROJECT_BINARY_DIR}/src/include/pg_config_ext.h"
-###    )
-###else()
-    configure_file(
-        "${PROJECT_SOURCE_DIR}/src/include/pg_config_cmake.in"
-        "${PROJECT_BINARY_DIR}/src/include/pg_config.h"
-    )
-    configure_file(
-        "${PROJECT_SOURCE_DIR}/src/include/pg_config_ext_cmake.in"
-        "${PROJECT_BINARY_DIR}/src/include/pg_config_ext.h"
-    )
-###endif()
+configure_file(
+    "${PROJECT_SOURCE_DIR}/src/include/pg_config_cmake.in"
+    "${PROJECT_BINARY_DIR}/src/include/pg_config.h"
+)
+configure_file(
+    "${PROJECT_SOURCE_DIR}/src/include/pg_config_ext_cmake.in"
+    "${PROJECT_BINARY_DIR}/src/include/pg_config_ext.h"
+)
+
 configure_file(
     "${PROJECT_SOURCE_DIR}/src/include/pg_config_paths_cmake.in"
     "${PROJECT_BINARY_DIR}/src/port/pg_config_paths.h"
-) 
-configure_file(
-    "${PROJECT_SOURCE_DIR}/PGXS.cmake.in"
-    "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/PGXS.cmake"
-    @ONLY
-) 
+)
 
-install(FILES ${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/PGXS.cmake
-    DESTINATION ${LIBDIR}/cmake)   
+find_package(Threads)
+if(Threads_FOUND)
+	set(ENABLE_THREAD_SAFETY 1)
+	set(PTHREAD_CFLAGS "-D_REENTRANT -D_THREAD_SAFE -D_POSIX_PTHREAD_SEMANTICS")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${PTHREAD_CFLAGS}")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT}")
+endif()
+
+find_library(DL_LIB dl)
+set(TARGET_LINK_LIB ${TARGET_LINK_LIB} ${DL_LIB})
+find_library(M_LIB m)
+set(TARGET_LINK_LIB ${TARGET_LINK_LIB} ${M_LIB})
+
+if(WIN32)
+    set(TARGET_LINK_LIB ${TARGET_LINK_LIB} Secur32 ws2_32)
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+	set(CMAKE_SHARED_LINKER_FLAGS "-undefined dynamic_lookup")
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD|NetBSD|OpenBSD")
+	set(CMAKE_SHARED_LIBRARY_SONAME_C_FLAG "-Wl,-x,-soname,")
+endif()
+
+if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-ignored-attributes")
+endif()
+
+if(MSVC)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D _CRT_SECURE_NO_WARNINGS")
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCC)
+	# Disable strict-aliasing rules; needed for gcc 3.3+
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
+	# Disable FP optimizations that cause various errors on gcc 4.5+ or maybe 4.6+
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fwrapv")
+	# Disable FP optimizations that cause various errors on gcc 4.5+ or maybe 4.6+
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexcess-precision=standard")
+endif()
+
+if(CMAKE_C_COMPILER_ID STREQUAL "Intel")
+	# Intel's compiler has a bug/misoptimization in checking for
+	# division by NAN (NaN == 0), -mp1 fixes it, so add it to the CFLAGS.
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mp1")
+	# Make sure strict aliasing is off (though this is said to be the default)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
+endif()
+
+if( NOT SKIP_INSTALL_FILES AND NOT SKIP_INSTALL_ALL )
+    install(FILES ${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/PGXS.cmake
+        DESTINATION ${LIBDIR}/cmake)
+endif()
+
+configure_file(${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake IMMEDIATE @ONLY)

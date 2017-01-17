@@ -74,10 +74,10 @@ extern int	FileWrite(File file, char *buffer, int amount);
 extern int	FileSync(File file);
 extern off_t FileSeek(File file, off_t offset, int whence);
 extern int	FileTruncate(File file, off_t offset);
-extern void FileWriteback(File file, off_t offset, int amount);
+extern void FileWriteback(File file, off_t offset, off_t nbytes);
 extern char *FilePathName(File file);
 extern int	FileGetRawDesc(File file);
-extern int  FileGetRawFlags(File file);
+extern int	FileGetRawFlags(File file);
 extern int	FileGetRawMode(File file);
 
 /* Operations that allow use of regular stdio --- USE WITH CAUTION */

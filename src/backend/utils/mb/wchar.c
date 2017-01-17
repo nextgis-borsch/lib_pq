@@ -110,8 +110,7 @@ pg_euc2wchar_with_len(const unsigned char *from, pg_wchar *to, int len)
 	return cnt;
 }
 
-// ### Changed for libpq external CMake build:
-static int //inline int
+static inline int
 pg_euc_mblen(const unsigned char *s)
 {
 	int			len;
@@ -127,8 +126,7 @@ pg_euc_mblen(const unsigned char *s)
 	return len;
 }
 
-// ### Changed for libpq external CMake build:
-static int //inline int
+static inline int
 pg_euc_dsplen(const unsigned char *s)
 {
 	int			len;

@@ -1,67 +1,90 @@
-### CMake Postgres project: only for libpq external library. 
+################################################################################
+# Project:  libpq
+# Purpose:  CMake build scripts
+# Author:   Mikhail Gusev, gusevmihs@gmail.com
+# Author:   Dmitry Baryshnikov, dmitry.baryshnikov@nextgis.com
+################################################################################
+# Copyright (C) 2016,2017, NextGIS <info@nextgis.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+################################################################################
 
 cmake_minimum_required(VERSION 2.8.12 FATAL_ERROR)
 
-project(pq C)
+project(pq)
 
+# Some init settings
 set(CMAKE_COLOR_MAKEFILE ON)
+# Set path to additional CMake modules
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
-include(FindAnyProject)
+if(OSX_FRAMEWORK AND (BUILD_SHARED_LIBS OR BUILD_STATIC_LIBS))
+  message(FATAL_ERROR "Only OSX_FRAMEWORK key or any or both BUILD_SHARED_LIBS
+                       and BUILD_STATIC_LIBS keys are permitted")
+endif()
 
+if(OSX_FRAMEWORK)
+  set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/Applications" CACHE INTERNAL "Installation directory for executables" FORCE)
+  set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/Library/Frameworks" CACHE INTERNAL "Installation directory for libraries" FORCE)
+  set(INSTALL_INC_DIR ${INSTALL_LIB_DIR}/${PROJECT_NAME}.framework/Headers CACHE INTERNAL "Installation directory for headers" FORCE)
+  set(SKIP_INSTALL_HEADERS ON)
+  set(SKIP_INSTALL_EXECUTABLES ON)
+  set(SKIP_INSTALL_FILES ON)
+  set(SKIP_INSTALL_EXPORT ON)
+  set(CMAKE_MACOSX_RPATH ON)
+else()
+    include(GNUInstallDirs)
 
-include(GNUInstallDirs)
+    set(INSTALL_BIN_DIR ${CMAKE_INSTALL_BINDIR} CACHE INTERNAL "Installation directory for executables" FORCE)
+    set(INSTALL_LIB_DIR ${CMAKE_INSTALL_LIBDIR} CACHE INTERNAL "Installation directory for libraries" FORCE)
+    set(INSTALL_INC_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE INTERNAL "Installation directory for headers" FORCE)
+endif()
 
-set(INSTALL_BIN_DIR ${CMAKE_INSTALL_BINDIR} CACHE INTERNAL "Installation directory for executables" FORCE)
-set(INSTALL_LIB_DIR ${CMAKE_INSTALL_LIBDIR} CACHE INTERNAL "Installation directory for libraries" FORCE)
-set(INSTALL_INC_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE INTERNAL "Installation directory for headers" FORCE)
+include(util)
+check_version(POSTGRES_MAJOR_VERSION POSTGRES_MINOR_VERSION POSTGRES_PATCH_VERSION VER_H_BUILD)
+math(EXPR PG_VERSION_NUM "${POSTGRES_MAJOR_VERSION} * 10000 + ${POSTGRES_MINOR_VERSION} * 100 + ${POSTGRES_PATCH_VERSION}")
+set(PG_VERSION "${POSTGRES_MAJOR_VERSION}.${POSTGRES_MINOR_VERSION}.${POSTGRES_PATCH_VERSION}")
+set(VERSION "${POSTGRES_MAJOR_VERSION}.${POSTGRES_MINOR_VERSION}.${POSTGRES_PATCH_VERSION}.${VER_H_BUILD}")
+report_version(${PROJECT_NAME} ${VERSION})
+
+if(OSX_FRAMEWORK)
+    set(FRAMEWORK_VERSION "${POSTGRES_MAJOR_VERSION}")
+endif()
 
 ### Rename directories:
 if(NOT INCLUDEDIR)
-	set(INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+	set(INCLUDEDIR "${INSTALL_INC_DIR}")
 endif(NOT INCLUDEDIR)
 if(NOT PKGINCLUDEDIR)
-	set(PKGINCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+	set(PKGINCLUDEDIR "${INSTALL_INC_DIR}")
 endif(NOT PKGINCLUDEDIR)
 if(NOT LIBDIR)
-	set(LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+	set(LIBDIR "${INSTALL_LIB_DIR}")
 endif(NOT LIBDIR)
 if(NOT PKGLIBDIR)
-	set(PKGLIBDIR "${CMAKE_INSTALL_LIBDIR}")
+	set(PKGLIBDIR "${INSTALL_LIB_DIR}")
 endif(NOT PKGLIBDIR)
 
-    
-###set(POSTGRES_MAJOR_VERSION 9)
-###set(POSTGRES_MINOR_VERSION 6)
-###set(POSTGRES_PATCH_VERSION 0)
-###set(POSTGRES_VERSION
-###   ${POSTGRES_MAJOR_VERSION}.${POSTGRES_MINOR_VERSION}.${POSTGRES_PATCH_VERSION})
-###set(PG_VERSION "9.6devel")
-###set(PG_VERSION_NUM 90600)
+### Do all configurations.
+include(configure)
 
-### TODO: correct to obtain libpq version from this place?
-include(util)
-set_pq_version(VER_H_MAJOR VER_H_MINOR VER_H_RELEASE VER_H_BUILD)
-set(LIBPQ_VERSION "${VER_H_MAJOR}.${VER_H_MINOR}.${VER_H_RELEASE}.${VER_H_BUILD}")
-report_version(${PROJECT_NAME} ${LIBPQ_VERSION})
-
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-	set(CMAKE_SHARED_LINKER_FLAGS "-undefined dynamic_lookup")
-endif()
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD|NetBSD|OpenBSD")
-	set(CMAKE_SHARED_LIBRARY_SONAME_C_FLAG "-Wl,-x,-soname,")
-endif()
-
-if(${CMAKE_C_COMPILER_ID} STREQUAL "Clang")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-ignored-attributes")
-endif()
-
-if(MSVC)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D _CRT_SECURE_NO_WARNINGS")
-endif()
-
+include(FindAnyProject)
 
 ###find_package(Perl REQUIRED)
 ###find_package(PerlLibs)
@@ -78,7 +101,7 @@ endif()
 
 ###find_package(BISON REQUIRED)
 ###find_package(FLEX REQUIRED)
-###find_package(Threads)
+
 find_anyproject(OpenSSL)###find_package(OpenSSL)
 ###find_package(ZLIB)
 ###find_package(PythonInterp)
@@ -90,17 +113,33 @@ find_anyproject(OpenSSL)###find_package(OpenSSL)
 
 if(OPENSSL_FOUND)
 	set(USE_OPENSSL 1)
+    add_definitions(-DUSE_OPENSSL)
+    if(WITH_OpenSSL_EXTERNAL)
+        add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION -DHAVE_BIO_METH_NEW) ### for our external system we know it definitely
+    else()
+        set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
+        set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+        check_function_exists(SSL_get_current_compression HAVE_SSL_GET_CURRENT_COMPRESSION)
+        if(HAVE_SSL_GET_CURRENT_COMPRESSION)
+            add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION)
+        endif()
+        check_function_exists(BIO_get_data HAVE_BIO_GET_DATA)
+        if(HAVE_BIO_GET_DATA)
+            add_definitions(-DHAVE_BIO_GET_DATA)
+        endif()
+        check_function_exists(OPENSSL_init_ssl HAVE_OPENSSL_INIT_SSL)
+        if(HAVE_OPENSSL_INIT_SSL)
+            add_definitions(-DHAVE_OPENSSL_INIT_SSL)
+        endif()
+        check_function_exists(BIO_meth_new HAVE_BIO_METH_NEW)
+        if(HAVE_BIO_METH_NEW)
+            add_definitions(-DHAVE_BIO_METH_NEW)
+        endif()
+        unset(CMAKE_REQUIRED_LIBRARIES)
+        unset(CMAKE_REQUIRED_INCLUDES)
+    endif()
 ###	set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
 ###	set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
-endif(OPENSSL_FOUND)
-
-if(NOT MSVC)
-	find_library(DL_LIBRARIES NAMES dl)
-	find_library(M_LIB m)
-endif()
-
-if(NOT DL_LIBRARIES)
-	set(DL_LIBRARIES "")
 endif()
 
 ###if(LIBXML2_FOUND)
@@ -115,23 +154,6 @@ endif()
 ###if(ZLIB_FOUND)
 ###	set(HAVE_LIBZ 1)
 ###endif()
-
-if(CMAKE_COMPILER_IS_GNUCC)
-	# Disable strict-aliasing rules; needed for gcc 3.3+
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
-	# Disable FP optimizations that cause various errors on gcc 4.5+ or maybe 4.6+
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fwrapv")
-	# Disable FP optimizations that cause various errors on gcc 4.5+ or maybe 4.6+
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexcess-precision=standard")
-endif()
-
-if(CMAKE_C_COMPILER_ID STREQUAL "Intel")
-	# Intel's compiler has a bug/misoptimization in checking for
-	# division by NAN (NaN == 0), -mp1 fixes it, so add it to the CFLAGS.
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mp1")
-	# Make sure strict aliasing is off (though this is said to be the default)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
-endif()
 
 #Check ReadLine includes
 ###option(WITH_READLINE "do not use GNU Readline nor BSD Libedit for editing" ON)
@@ -162,25 +184,10 @@ endif()
 ###	endif(READLINE_FOUND)
 ###endif()
 
-if(Threads_FOUND)
-	set(ENABLE_THREAD_SAFETY 1)
-	set(PTHREAD_CFLAGS "-D_REENTRANT -D_THREAD_SAFE -D_POSIX_PTHREAD_SEMANTICS")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${PTHREAD_CFLAGS}")
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${CMAKE_THREAD_LIBS_INIT}")
-endif()
-
-
-if(NOT PGPORT)
-	set(PGPORT 5432)
-endif(NOT PGPORT)
-
-
-### Do all configurations.
-include(configure) 
-
 ### For generated configure files:
-include_directories(${PROJECT_BINARY_DIR}/src/include)
-include_directories(${PROJECT_BINARY_DIR}/src/port)
+include_directories("${PROJECT_BINARY_DIR}/src/include")
+include_directories("${PROJECT_SOURCE_DIR}/src/include")
+include_directories("${PROJECT_BINARY_DIR}/src/port")
 
 
 set(PORT_DIR "${PROJECT_SOURCE_DIR}/src/port")
@@ -191,39 +198,33 @@ set(MB_UTILS_BACKEND_DIR "${PROJECT_SOURCE_DIR}/src/backend/utils/mb")
 set(fallback_SRCS "")
 if(NOT HAVE_DECL_STRLCPY)
   set(fallback_SRCS ${fallback_SRCS} "${PORT_DIR}/strlcpy.c")
-endif(NOT HAVE_DECL_STRLCPY)
+endif()
+
 if(NOT HAVE_DECL_STRLCAT)
   set(fallback_SRCS ${fallback_SRCS} "${PORT_DIR}/strlcat.c")
-endif(NOT HAVE_DECL_STRLCAT)
+endif()
+
 if(NOT HAVE_GETPEEREID)
   set(fallback_SRCS ${fallback_SRCS} "${PORT_DIR}/getpeereid.c")
-endif(NOT HAVE_GETPEEREID)
+endif()
 
 ### The following added so not to use perl for replacing snprintf functions.
 ### Note: in msvc2013 there is no snprintf() function at all.
-if(NOT HAVE_DECL_SNPRINTF) 
+if(NOT HAVE_DECL_SNPRINTF)
     add_definitions(-DUSE_REPL_SNPRINTF)
     set(fallback_SRCS ${fallback_SRCS} "${PORT_DIR}/snprintf.c")
-endif(NOT HAVE_DECL_SNPRINTF)
-
-
-if(WIN32)
-	set(LIB_M "")
-else()
-	set(LIB_M m)
 endif()
-
 
 option(HAVE_SPINLOCKS "Define to ON if you have spinlocks." ON)
 option(HAVE_ATOMICS "Define to ON if you want to use atomics if available." ON)
 option(USE_INTEGER_DATETIMES "Define to ON if you want 64-bit integer timestamp and interval support." ON)
+
 if(WIN32)
 	option(HAVE_SYMLINK "Define to ON if you have the `symlink' function." ON)
-else(WIN32)
+else()
 	set(HAVE_SYMLINK 1)
-endif(WIN32)
+endif()
 option(PG_KRB_SRVNAM "Define to the name of the default PostgreSQL service principal in Kerberos (GSSAPI)." "postgres")
-
 
 if(WIN32)
 	include_directories("${PROJECT_SOURCE_DIR}/src/include/port/win32")
@@ -244,23 +245,55 @@ endif()
 
 set(EXPORT_TARGETS)
 
+set(PUBLIC_HDRS
+    ${PROJECT_SOURCE_DIR}/src/include/postgres_ext.h
+    ${PROJECT_BINARY_DIR}/src/include/pg_config.h
+	${PROJECT_BINARY_DIR}/src/include/pg_config_ext.h
+	${PROJECT_BINARY_DIR}/src/include/pg_config_os.h
+)
+
+set(PUBLIC_HDRS_PQ
+    ${PROJECT_SOURCE_DIR}/src/include/libpq/libpq-fs.h
+)
+
 add_subdirectory(src)
 ###add_subdirectory(contrib)
 
 ### Install other headers.
-# These headers are needed by the public headers of the interfaces.
-install(FILES
-	src/include/postgres_ext.h
-	${PROJECT_BINARY_DIR}/src/include/pg_config.h
-	${PROJECT_BINARY_DIR}/src/include/pg_config_ext.h
-	${PROJECT_BINARY_DIR}/src/include/pg_config_os.h
-###	src/include/pg_config_manual.h
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(FILES
-	src/include/libpq/libpq-fs.h
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libpq)
+if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL)
+    # These headers are needed by the public headers of the interfaces.
+    install(FILES ${PUBLIC_HDRS}
+    ###	src/include/pg_config_manual.h
+    	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    install(FILES ${PUBLIC_HDRS_PQ}	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libpq)
+endif()
 
 ### Finally export libpq.
 if(EXPORT_TARGETS)
     export(TARGETS ${EXPORT_TARGETS} FILE ${LIB_NAME}-exports.cmake EXPORT_LINK_INTERFACE_LIBRARIES)
 endif()
+
+if (REGISTER_PACKAGE)
+    export(TARGETS ${EXPORT_TARGETS} FILE ${PROJECT_NAME}-exports.cmake)
+
+    set(EXPORT_PACKAGE_NAME PostgreSQL)
+    set(EXPORT_PACKAGE_NAME_UPPER POSTGRESQL)
+    set(EXPORT_PACKAGE_LIB_NAME ${PROJECT_NAME})
+
+    export(PACKAGE ${EXPORT_PACKAGE_NAME})
+
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file(
+        ${CMAKE_SOURCE_DIR}/cmake/PackageConfig.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_PACKAGE_NAME}Config.cmake
+        INSTALL_DESTINATION ${INSTALL_LIB_DIR}/cmake
+        PATH_VARS INSTALL_INC_DIR )
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_PACKAGE_NAME}ConfigVersion.cmake
+        VERSION ${VERSION}
+        COMPATIBILITY AnyNewerVersion )
+else()
+    export(TARGETS ${EXPORT_TARGETS} FILE ${PROJECT_NAME}-exports.cmake EXPORT_LINK_INTERFACE_LIBRARIES)
+endif()
+
+add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)

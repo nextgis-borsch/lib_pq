@@ -1,4 +1,4 @@
-### CMake Postgres project: only for libpq external library. 
+### CMake Postgres project: only for libpq external library.
 
 include_directories(BEFORE
 	"${CMAKE_CURRENT_SOURCE_DIR}"
@@ -9,7 +9,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(USE_OPENSSL)
 	set(pq_ssl_SRCS fe-secure-openssl.c)
-endif(USE_OPENSSL)
+endif()
 
 set(pq_SRCS
 	fe-auth.c
@@ -42,8 +42,13 @@ set(pq_SRCS
 
 if(WIN32)
 	configure_file(libpq.rc.in ${CMAKE_CURRENT_BINARY_DIR}/libpq.rc)
-	configure_file(exports.txt ${CMAKE_CURRENT_BINARY_DIR}/exports.def COPYONLY)
-	set(pq_SRCS ${pq_SRCS} 
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        set(pq_SRCS ${pq_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/libpqddll.def)
+    else()
+        set(pq_SRCS ${pq_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/libpqdll.def)
+    endif()
+
+	set(pq_SRCS ${pq_SRCS}
 		win32.c
 		${PORT_DIR}/win32error.c
 		${PORT_DIR}/win32setlocale.c
@@ -53,7 +58,6 @@ if(WIN32)
 		${PORT_DIR}/inet_aton.c
 		${PORT_DIR}/thread.c
 		${PORT_DIR}/getaddrinfo.c
-		${CMAKE_CURRENT_BINARY_DIR}/exports.def
 		${CMAKE_CURRENT_BINARY_DIR}/libpq.rc
 	)
 	if (Threads_FOUND)
@@ -61,30 +65,55 @@ if(WIN32)
 	endif()
 endif()
 
-add_library(${LIB_NAME} ${LIB_TYPE} ${pq_SRCS})
+file(GLOB_RECURSE FINAL_HEADERS FOLOW_SYMLYNKS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
+set(ALL_PUBLIC_HDRS_PQ ${FINAL_HEADERS} ${PUBLIC_HDRS} ${PUBLIC_HDRS_PQ})
 
-target_link_extlibraries(${LIB_NAME})
-
-if(WIN32)
-	target_link_libraries(${LIB_NAME}
-		Secur32
-		ws2_32
-	)
-endif()
-
-target_compile_definitions(${LIB_NAME} PRIVATE -DFRONTEND -DUNSAFE_STAT_OK)
-
-#TODO 
+# TODO:
 #set_target_properties(pq PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.list")
 
-install(TARGETS ${LIB_NAME}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-    
-### TODO: is it correct to install only these headers?
-file(GLOB_RECURSE FINAL_HEADERS FOLOW_SYMLYNKS *.h)
-install(FILES ${FINAL_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/.)
+if(BUILD_SHARED_LIBS)
+    add_library(${LIB_NAME} SHARED ${pq_SRCS} ${ALL_PUBLIC_HDRS_PQ})
+    set_target_properties(${LIB_NAME} PROPERTIES
+        SOVERSION ${POSTGRES_MAJOR_VERSION}
+        VERSION ${VERSION}
+        PUBLIC_HEADER "${ALL_PUBLIC_HDRS_PQ}")
+elseif(OSX_FRAMEWORK)
+    add_library(${LIB_NAME} SHARED ${pq_SRCS} ${ALL_PUBLIC_HDRS_PQ})
+    set_property(SOURCE ${PUBLIC_HDRS_PQ} PROPERTY MACOSX_PACKAGE_LOCATION "Headers/libpq")
+    set_property(SOURCE ${FINAL_HEADERS} PROPERTY MACOSX_PACKAGE_LOCATION "Headers/libpq")
+
+    set_target_properties(${LIB_NAME} PROPERTIES
+        SOVERSION ${POSTGRES_MAJOR_VERSION}
+        VERSION ${VERSION}
+        FRAMEWORK TRUE
+        FRAMEWORK_VERSION ${FRAMEWORK_VERSION}
+        MACOSX_FRAMEWORK_SHORT_VERSION_STRING ${VERSION}
+        MACOSX_FRAMEWORK_BUNDLE_VERSION ${VERSION}
+        MACOSX_FRAMEWORK_IDENTIFIER org.postgresql.libpq
+        XCODE_ATTRIBUTE_INSTALL_PATH "@rpath")
+else()
+    add_library(${LIB_NAME} STATIC ${pq_SRCS} ${ALL_PUBLIC_HDRS_PQ})
+    set_target_properties(${LIB_NAME} PROPERTIES
+        SOVERSION ${POSTGRES_MAJOR_VERSION}
+        VERSION ${VERSION}
+        PUBLIC_HEADER "${ALL_PUBLIC_HDRS_PQ}")
+endif()
+
+target_link_extlibraries(${LIB_NAME})
+target_compile_definitions(${LIB_NAME} PRIVATE -DFRONTEND -DUNSAFE_STAT_OK)
+
+if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL )
+    install(TARGETS ${LIB_NAME}
+        RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
+        ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
+        LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
+        FRAMEWORK DESTINATION "${INSTALL_LIB_DIR}"
+        PUBLIC_HEADER DESTINATION "${INSTALL_INC_DIR}"
+    )
+endif()
+
+if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL)
+    install(FILES ${FINAL_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/.)
+endif()
 
 set(EXPORT_TARGETS ${EXPORT_TARGETS} ${LIB_NAME} PARENT_SCOPE)
-

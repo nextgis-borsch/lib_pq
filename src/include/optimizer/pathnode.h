@@ -34,7 +34,7 @@ extern bool add_partial_path_precheck(RelOptInfo *parent_rel,
 						  Cost total_cost, List *pathkeys);
 
 extern Path *create_seqscan_path(PlannerInfo *root, RelOptInfo *rel,
-					Relids required_outer, int parallel_degree);
+					Relids required_outer, int parallel_workers);
 extern Path *create_samplescan_path(PlannerInfo *root, RelOptInfo *rel,
 					   Relids required_outer);
 extern IndexPath *create_index_path(PlannerInfo *root,
@@ -62,7 +62,7 @@ extern BitmapOrPath *create_bitmap_or_path(PlannerInfo *root,
 extern TidPath *create_tidscan_path(PlannerInfo *root, RelOptInfo *rel,
 					List *tidquals, Relids required_outer);
 extern AppendPath *create_append_path(RelOptInfo *rel, List *subpaths,
-				   Relids required_outer, int parallel_degree);
+				   Relids required_outer, int parallel_workers);
 extern MergeAppendPath *create_merge_append_path(PlannerInfo *root,
 						 RelOptInfo *rel,
 						 List *subpaths,
@@ -74,7 +74,8 @@ extern MaterialPath *create_material_path(RelOptInfo *rel, Path *subpath);
 extern UniquePath *create_unique_path(PlannerInfo *root, RelOptInfo *rel,
 				   Path *subpath, SpecialJoinInfo *sjinfo);
 extern GatherPath *create_gather_path(PlannerInfo *root,
-				   RelOptInfo *rel, Path *subpath, Relids required_outer);
+				   RelOptInfo *rel, Path *subpath, PathTarget *target,
+				   Relids required_outer, double *rows);
 extern SubqueryScanPath *create_subqueryscan_path(PlannerInfo *root,
 						 RelOptInfo *rel, Path *subpath,
 						 List *pathkeys, Relids required_outer);
@@ -165,6 +166,7 @@ extern AggPath *create_agg_path(PlannerInfo *root,
 				Path *subpath,
 				PathTarget *target,
 				AggStrategy aggstrategy,
+				AggSplit aggsplit,
 				List *groupClause,
 				List *qual,
 				const AggClauseCosts *aggcosts,

@@ -3,7 +3,7 @@
 # Purpose:  CMake build scripts
 # Author:   Mikhail Gusev, gusevmihs@gmail.com
 ################################################################################
-# Copyright (C) 2016, NextGIS <info@nextgis.com>
+# Copyright (C) 2016,2017, NextGIS <info@nextgis.com>
 # Copyright (C) 2016, Mikhail Gusev
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,7 +25,7 @@
 # DEALINGS IN THE SOFTWARE.
 ################################################################################
 
-function(set_pq_version major minor release build)
+function(check_version major minor release build)
     set(filename "${CMAKE_SOURCE_DIR}/src/interfaces/libpq/libpq.rc.in")
     file(READ ${filename} FILE_CONTENTS)
     string(REGEX MATCH "FILEVERSION[ \t]+[0-9]+,[0-9]+,[0-9]+,[0-9]+" VERSION_STR ${FILE_CONTENTS})
@@ -45,7 +45,7 @@ function(report_version name ver)
     set(BoldYellow  "${Esc}[1;33m")
     set(ColourReset "${Esc}[m")
     message(STATUS "${BoldYellow}${name} version ${ver}${ColourReset}")
-endfunction()    
+endfunction()
 
 # macro to find packages on the host OS
 macro( find_exthost_package )

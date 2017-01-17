@@ -169,6 +169,17 @@
 #define dummyret	char
 #endif
 
+/* Which __func__ symbol do we have, if any? */
+#ifdef HAVE_FUNCNAME__FUNC
+#define PG_FUNCNAME_MACRO	__func__
+#else
+#ifdef HAVE_FUNCNAME__FUNCTION
+#define PG_FUNCNAME_MACRO	__FUNCTION__
+#else
+#define PG_FUNCNAME_MACRO	NULL
+#endif
+#endif
+
 /* ----------------------------------------------------------------
  *				Section 2:	bool, true, false, TRUE, FALSE, NULL
  * ----------------------------------------------------------------
@@ -306,7 +317,8 @@ typedef unsigned long long int uint64;
  *		There currently is only a limited support for the type. E.g. 128bit
  *		literals and snprintf are not supported; but math is.
  */
-#if defined(HAVE_INT128)
+#if defined(PG_INT128_TYPE)
+#define HAVE_INT128
 typedef PG_INT128_TYPE int128;
 typedef unsigned PG_INT128_TYPE uint128;
 #endif

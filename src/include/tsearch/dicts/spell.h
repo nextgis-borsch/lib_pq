@@ -28,9 +28,9 @@ typedef struct
 {
 	uint32		val:8,
 				isword:1,
-				/* Stores compound flags listed below */
+	/* Stores compound flags listed below */
 				compoundflag:4,
-				/* Reference to an entry of the AffixData field */
+	/* Reference to an entry of the AffixData field */
 				affix:19;
 	struct SPNode *node;
 } SPNodeData;
@@ -45,7 +45,7 @@ typedef struct
 #define FF_COMPOUNDLAST		0x08
 #define FF_COMPOUNDFLAG		( FF_COMPOUNDBEGIN | FF_COMPOUNDMIDDLE | \
 							FF_COMPOUNDLAST )
-#define FF_DICTFLAGMASK		0x0f
+#define FF_COMPOUNDFLAGMASK		0x0f
 
 typedef struct SPNode
 {
@@ -63,8 +63,8 @@ typedef struct spell_struct
 	union
 	{
 		/*
-		 * flag is filled in by NIImportDictionary(). After NISortDictionary(),
-		 * d is used instead of flag.
+		 * flag is filled in by NIImportDictionary(). After
+		 * NISortDictionary(), d is used instead of flag.
 		 */
 		char	   *flag;
 		/* d is used in mkSPNode() */
@@ -86,8 +86,8 @@ typedef struct spell_struct
  */
 typedef struct aff_struct
 {
-	uint32		flag:16;
-				/* FF_SUFFIX or FF_PREFIX */
+	char	   *flag;
+	/* FF_SUFFIX or FF_PREFIX */
 	uint32		type:1,
 				flagflags:7,
 				issimple:1,
@@ -146,14 +146,34 @@ typedef struct
 	bool		issuffix;
 } CMPDAffix;
 
+/*
+ * Type of encoding affix flags in Hunspel dictionaries
+ */
 typedef enum
 {
-	FM_CHAR,
-	FM_LONG,
-	FM_NUM
+	FM_CHAR,					/* one character (like ispell) */
+	FM_LONG,					/* two characters */
+	FM_NUM						/* number, >= 0 and < 65536 */
 } FlagMode;
 
-#define FLAGCHAR_MAXSIZE	(1 << 8)
+/*
+ * Structure to store Hunspell options. Flag representation depends on flag
+ * type. These flags are about support of compound words.
+ */
+typedef struct CompoundAffixFlag
+{
+	union
+	{
+		/* Flag name if flagMode is FM_CHAR or FM_LONG */
+		char	   *s;
+		/* Flag name if flagMode is FM_NUM */
+		uint32		i;
+	}			flag;
+	/* we don't have a bsearch_arg version, so, copy FlagMode */
+	FlagMode	flagMode;
+	uint32		value;
+} CompoundAffixFlag;
+
 #define FLAGNUM_MAXSIZE		(1 << 16)
 
 typedef struct
@@ -174,9 +194,19 @@ typedef struct
 
 	CMPDAffix  *CompoundAffix;
 
-	unsigned char flagval[FLAGNUM_MAXSIZE];
 	bool		usecompound;
 	FlagMode	flagMode;
+
+	/*
+	 * All follow fields are actually needed only for initialization
+	 */
+
+	/* Array of Hunspell options in affix file */
+	CompoundAffixFlag *CompoundAffixFlags;
+	/* number of entries in CompoundAffixFlags array */
+	int			nCompoundAffixFlag;
+	/* allocated length of CompoundAffixFlags array */
+	int			mCompoundAffixFlag;
 
 	/*
 	 * Remaining fields are only used during dictionary construction; they are

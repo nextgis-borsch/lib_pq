@@ -24,9 +24,11 @@ typedef PlannedStmt *(*planner_hook_type) (Query *parse,
 												  ParamListInfo boundParams);
 extern PGDLLIMPORT planner_hook_type planner_hook;
 
-/* Hook for plugins to get control before grouping_planner plans upper rels */
+/* Hook for plugins to get control when grouping_planner() plans upper rels */
 typedef void (*create_upper_paths_hook_type) (PlannerInfo *root,
-												  RelOptInfo *scan_join_rel);
+													 UpperRelationKind stage,
+													   RelOptInfo *input_rel,
+													 RelOptInfo *output_rel);
 extern PGDLLIMPORT create_upper_paths_hook_type create_upper_paths_hook;
 
 
@@ -43,6 +45,8 @@ extern bool is_dummy_plan(Plan *plan);
 
 extern RowMarkType select_rowmark_type(RangeTblEntry *rte,
 					LockClauseStrength strength);
+
+extern void mark_partial_aggref(Aggref *agg, AggSplit aggsplit);
 
 extern Path *get_cheapest_fractional_path(RelOptInfo *rel,
 							 double tuple_fraction);

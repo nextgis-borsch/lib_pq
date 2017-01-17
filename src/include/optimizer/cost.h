@@ -54,7 +54,7 @@ extern PGDLLIMPORT double parallel_tuple_cost;
 extern PGDLLIMPORT double parallel_setup_cost;
 extern PGDLLIMPORT int effective_cache_size;
 extern Cost disable_cost;
-extern int	max_parallel_degree;
+extern int	max_parallel_workers_per_gather;
 extern bool enable_seqscan;
 extern bool enable_indexscan;
 extern bool enable_indexonlyscan;
@@ -150,7 +150,7 @@ extern void final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 					SpecialJoinInfo *sjinfo,
 					SemiAntiJoinFactors *semifactors);
 extern void cost_gather(GatherPath *path, PlannerInfo *root,
-			RelOptInfo *baserel, ParamPathInfo *param_info);
+			RelOptInfo *baserel, ParamPathInfo *param_info, double *rows);
 extern void cost_subplan(PlannerInfo *root, SubPlan *subplan, Plan *plan);
 extern void cost_qual_eval(QualCost *cost, List *quals, PlannerInfo *root);
 extern void cost_qual_eval_node(QualCost *cost, Node *qual, PlannerInfo *root);
@@ -167,8 +167,8 @@ extern double get_parameterized_baserel_size(PlannerInfo *root,
 							   List *param_clauses);
 extern double get_parameterized_joinrel_size(PlannerInfo *root,
 							   RelOptInfo *rel,
-							   double outer_rows,
-							   double inner_rows,
+							   Path *outer_path,
+							   Path *inner_path,
 							   SpecialJoinInfo *sjinfo,
 							   List *restrict_clauses);
 extern void set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,

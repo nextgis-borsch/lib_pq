@@ -1,10 +1,3 @@
-
-### CMake Postgres project for external libpq only.
-### PostgreSQL DBMS sources have been partly removed to make the final library light-weighted. 
-### Original sources: https://github.com/stalkerg/postgres_cmake.git
-
-
-
 PostgreSQL Database Management System
 =====================================
 
