@@ -11,9 +11,7 @@ include(CheckCSourceCompiles)
 include(TestBigEndian)
 include(CheckStructHasMember)
 
-
 test_big_endian(WORDS_BIGENDIAN)
-
 
 check_symbol_exists(strlcpy "stdio.h;string.h" HAVE_DECL_STRLCPY)
 if(NOT HAVE_DECL_STRLCPY)
@@ -43,16 +41,10 @@ check_function_exists(towlower HAVE_TOWLOWER)
 check_function_exists(wcstombs HAVE_WCSTOMBS)
 check_function_exists(wcstombs_l HAVE_WCSTOMBS_L)
 
-set(CMAKE_MACOSX_RPATH 1)
-#set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
 if(MSVC)
 	check_function_exists(_fseeki64 HAVE_FSEEKO)
 else()
 	check_function_exists(fseeko HAVE_FSEEKO)
-endif()
-
-if(NOT MSVC)
 	set(CMAKE_EXTRA_INCLUDE_FILES "${CMAKE_EXTRA_INCLUDE_FILES};dlfcn.h")
 	set(CMAKE_REQUIRED_LIBRARIES ${DL_LIBRARIES})
 	check_function_exists(dlopen HAVE_DLOPEN)
@@ -323,7 +315,7 @@ CHECK_SYMBOL_EXISTS(fdatasync "unistd.h" HAVE_FDATASYNC)
 if(WIN32)
 	set(USE_WIN32_SEMAPHORES 1)
 	set(SEMA_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/win32_sema.c")
-else(WIN32)
+else()
 	if(USE_NAMED_POSIX_SEMAPHORES)
 		set(USE_NAMED_POSIX_SEMAPHORES 1)
 		set(SEMA_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/posix_sema.c")
@@ -334,22 +326,17 @@ else(WIN32)
 		set(USE_SYSV_SEMAPHORES 1)
 		set(SEMA_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/sysv_sema.c")
 	endif(USE_NAMED_POSIX_SEMAPHORES)
-endif(WIN32)
+endif()
 
 #Realy bad name for win32
 set(USE_SYSV_SHARED_MEMORY 1)
 if(WIN32)
 	set(SHMEM_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/win32_shmem.c")
-else(WIN32)
-	set(SHMEM_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/sysv_shmem.c")
-endif(WIN32)
-
-if(WIN32)
 	set(LATCH_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/win32_latch.c")
-else(WIN32)
+else()
+	set(SHMEM_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/sysv_shmem.c")
 	set(LATCH_IMPLEMENTATION "${PROJECT_SOURCE_DIR}/src/backend/port/unix_latch.c")
-endif(WIN32)
-
+endif()
 
 #TODO: Need test this
 if(CMAKE_C_COMPILER_ID STREQUAL "SunPro")
@@ -372,7 +359,7 @@ if(WIN32)
 	)
 	set(CMAKE_REQUIRED_DEFINITIONS "WIN32_LEAN_AND_MEAN")
 	check_type_size(MINIDUMP_TYPE NAVE_MINIDUMP_TYPE)
-endif(WIN32)
+endif()
 
 set(WIN32_STACK_RLIMIT 4194304)
 if(WIN32)
@@ -383,7 +370,6 @@ include(GenDef)
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 include(RegressCheck)
-
 
 set(WITH_UUID "OFF" CACHE STRING "type of uuid lib [bsd, e2fs, ossp]")
 if(WITH_UUID)

@@ -82,9 +82,8 @@ if(NOT PKGLIBDIR)
 endif(NOT PKGLIBDIR)
 
 ### Do all configurations.
-include(configure)
-
 include(FindAnyProject)
+include(configure)
 
 ###find_package(Perl REQUIRED)
 ###find_package(PerlLibs)
