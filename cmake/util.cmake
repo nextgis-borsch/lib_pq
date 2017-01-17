@@ -38,6 +38,10 @@ function(check_version major minor release build)
     set(${minor} ${VER_MINOR} PARENT_SCOPE)
     set(${release} ${VER_RELEASE} PARENT_SCOPE)
     set(${build} ${VER_BUILD} PARENT_SCOPE)
+
+    # Store version string in file for installer needs
+    file(TIMESTAMP ${filename} VERSION_DATETIME "%Y-%m-%d %H:%M:%S" UTC)
+    file(WRITE ${CMAKE_BINARY_DIR}/version.str "${VER_MAJOR}.${VER_MINOR}.${VER_RELEASE}\n${VERSION_DATETIME}")
 endfunction()
 
 function(report_version name ver)
