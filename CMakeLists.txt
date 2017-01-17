@@ -115,7 +115,7 @@ if(OPENSSL_FOUND)
 	set(USE_OPENSSL 1)
     add_definitions(-DUSE_OPENSSL)
     if(WITH_OpenSSL_EXTERNAL)
-        add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION -DHAVE_BIO_METH_NEW) ### for our external system we know it definitely
+        add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION -DHAVE_BIO_GET_DATA -DHAVE_OPENSSL_INIT_SSL -DHAVE_BIO_METH_NEW) ### for our external system we know it definitely
     else()
         set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
         set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
