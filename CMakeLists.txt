@@ -82,9 +82,8 @@ if(NOT PKGLIBDIR)
 endif(NOT PKGLIBDIR)
 
 ### Do all configurations.
-include(configure)
-
 include(FindAnyProject)
+include(configure)
 
 ###find_package(Perl REQUIRED)
 ###find_package(PerlLibs)
@@ -115,7 +114,7 @@ if(OPENSSL_FOUND)
 	set(USE_OPENSSL 1)
     add_definitions(-DUSE_OPENSSL)
     if(WITH_OpenSSL_EXTERNAL)
-        add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION -DHAVE_BIO_METH_NEW) ### for our external system we know it definitely
+        add_definitions(-DHAVE_SSL_GET_CURRENT_COMPRESSION -DHAVE_BIO_GET_DATA -DHAVE_OPENSSL_INIT_SSL -DHAVE_BIO_METH_NEW -DHAVE_ASN1_STRING_GET0_DATA) ### for our external system we know it definitely
     else()
         set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_LIBRARIES})
         set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
@@ -134,6 +133,10 @@ if(OPENSSL_FOUND)
         check_function_exists(BIO_meth_new HAVE_BIO_METH_NEW)
         if(HAVE_BIO_METH_NEW)
             add_definitions(-DHAVE_BIO_METH_NEW)
+        endif()
+        check_function_exists(ASN1_STRING_get0_data HAVE_ASN1_STRING_GET0_DATA)
+        if(HAVE_ASN1_STRING_GET0_DATA)
+            add_definitions(-DHAVE_ASN1_STRING_GET0_DATA)
         endif()
         unset(CMAKE_REQUIRED_LIBRARIES)
         unset(CMAKE_REQUIRED_INCLUDES)
