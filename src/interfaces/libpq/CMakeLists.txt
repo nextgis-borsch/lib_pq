@@ -68,6 +68,10 @@ endif()
 file(GLOB_RECURSE FINAL_HEADERS FOLOW_SYMLYNKS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 set(ALL_PUBLIC_HDRS_PQ ${FINAL_HEADERS} ${PUBLIC_HDRS} ${PUBLIC_HDRS_PQ})
 
+if(MSVC_VERSION < 1900)
+    add_definitions(-Dinline=__inline)
+endif()
+
 # TODO:
 #set_target_properties(pq PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.list")
 
