@@ -280,7 +280,7 @@ if (REGISTER_PACKAGE)
     export(TARGETS ${EXPORT_TARGETS} FILE ${PROJECT_NAME}-exports.cmake)
 
     set(EXPORT_PACKAGE_NAME PostgreSQL)
-    set(EXPORT_PACKAGE_NAME_UPPER POSTGRESQL)
+    string(TOUPPER ${EXPORT_PACKAGE_NAME} EXPORT_PACKAGE_NAME_UPPER)
     set(EXPORT_PACKAGE_LIB_NAME ${PROJECT_NAME})
 
     export(PACKAGE ${EXPORT_PACKAGE_NAME})
@@ -289,8 +289,7 @@ if (REGISTER_PACKAGE)
     configure_package_config_file(
         ${CMAKE_SOURCE_DIR}/cmake/PackageConfig.cmake.in
         ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_PACKAGE_NAME}Config.cmake
-        INSTALL_DESTINATION ${INSTALL_LIB_DIR}/cmake
-        PATH_VARS INSTALL_INC_DIR )
+    INSTALL_DESTINATION ${CMAKE_CURRENT_BINARY_DIR} )
     write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_PACKAGE_NAME}ConfigVersion.cmake
         VERSION ${VERSION}
