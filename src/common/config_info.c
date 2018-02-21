@@ -4,7 +4,7 @@
  *		Common code for pg_config output
  *
  *
- * Portions Copyright (c) 1996-2016, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2017, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -21,7 +21,6 @@
 #endif
 
 #include "common/config_info.h"
-#include "miscadmin.h"
 
 
 /*
@@ -33,10 +32,10 @@
 ConfigData *
 get_configdata(const char *my_exec_path, size_t *configdata_len)
 {
-	ConfigData	   *configdata;
-	char			path[MAXPGPATH];
-	char		   *lastsep;
-	int				i = 0;
+	ConfigData *configdata;
+	char		path[MAXPGPATH];
+	char	   *lastsep;
+	int			i = 0;
 
 	/* Adjust this to match the number of items filled below */
 	*configdata_len = 23;

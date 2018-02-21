@@ -8,7 +8,9 @@ include_directories(BEFORE
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(USE_OPENSSL)
-	set(pq_ssl_SRCS fe-secure-openssl.c)
+	set(pq_ssl_SRCS fe-secure-openssl.c ${PROJECT_SOURCE_DIR}/src/common/sha2_openssl.c)
+else()
+    set(pq_ssl_SRCS ${PROJECT_SOURCE_DIR}/src/common/sha2.c)
 endif()
 
 set(pq_SRCS
@@ -23,16 +25,22 @@ set(pq_SRCS
 	pqexpbuffer.c
 	fe-secure.c
 	libpq-events.c
+    fe-auth-scram.c
 
 	${PORT_DIR}/chklocale.c
+	${PORT_DIR}/erand48.c
 	${PORT_DIR}/inet_net_ntop.c
 	${PORT_DIR}/noblock.c
 	${PORT_DIR}/pgstrcasecmp.c
 	${PORT_DIR}/pqsignal.c
 	${PORT_DIR}/thread.c
 
-	${PQ_BACKEND_DIR}/ip.c
-	${PQ_BACKEND_DIR}/md5.c
+    ${PROJECT_SOURCE_DIR}/src/common/base64.c
+	${PROJECT_SOURCE_DIR}/src/common/ip.c
+	${PROJECT_SOURCE_DIR}/src/common/md5.c
+	${PROJECT_SOURCE_DIR}/src/common/scram-common.c
+	${PROJECT_SOURCE_DIR}/src/common/saslprep.c
+	${PROJECT_SOURCE_DIR}/src/common/unicode_norm.c
 	${MB_UTILS_BACKEND_DIR}/encnames.c
 	${MB_UTILS_BACKEND_DIR}/wchar.c
 
@@ -110,16 +118,36 @@ target_compile_definitions(${LIB_NAME} PRIVATE -DFRONTEND -DUNSAFE_STAT_OK)
 
 if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL )
     install(TARGETS ${LIB_NAME}
-        RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
-        ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
-        LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
-        FRAMEWORK DESTINATION "${INSTALL_LIB_DIR}"
-        PUBLIC_HEADER DESTINATION "${INSTALL_INC_DIR}"
+        EXPORT ${PACKAGE_UPPER_NAME}Targets
+        RUNTIME DESTINATION ${INSTALL_BIN_DIR}
+        ARCHIVE DESTINATION ${INSTALL_LIB_DIR}
+        LIBRARY DESTINATION ${INSTALL_LIB_DIR}
+        INCLUDES DESTINATION ${INSTALL_INC_DIR}
+        FRAMEWORK DESTINATION ${INSTALL_LIB_DIR}
     )
 endif()
 
 if(NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL)
-    install(FILES ${FINAL_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/.)
+    install(FILES ${FINAL_HEADERS} DESTINATION ${INSTALL_INC_DIR})
 endif()
 
-set(EXPORT_TARGETS ${EXPORT_TARGETS} ${LIB_NAME} PARENT_SCOPE)
+# Add path to includes to build-tree export
+target_include_directories(${LIB_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src/port>
+)
+
+# Add all targets to the build-tree export set
+export(TARGETS ${LIB_NAME}
+    FILE ${PROJECT_BINARY_DIR}/${PACKAGE_UPPER_NAME}Targets.cmake)
+
+if(NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
+    # Install the <Package>Config.cmake
+    install(FILES
+      ${PROJECT_BINARY_DIR}/${PACKAGE_UPPER_NAME}Config.cmake
+      DESTINATION ${INSTALL_CMAKECONF_DIR} COMPONENT dev)
+
+    # Install the export set for use with the install-tree
+    install(EXPORT ${PACKAGE_UPPER_NAME}Targets DESTINATION ${INSTALL_CMAKECONF_DIR} COMPONENT dev)
+endif()
