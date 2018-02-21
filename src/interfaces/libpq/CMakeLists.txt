@@ -66,6 +66,7 @@ if(WIN32)
 		${PORT_DIR}/inet_aton.c
 		${PORT_DIR}/thread.c
 		${PORT_DIR}/getaddrinfo.c
+        ${PORT_DIR}/gettimeofday.c
 		${CMAKE_CURRENT_BINARY_DIR}/libpq.rc
 	)
 	if (Threads_FOUND)
