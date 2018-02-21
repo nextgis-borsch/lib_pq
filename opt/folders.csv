@@ -17,7 +17,11 @@ src/include/libpq,src/include/libpq,,h
 src/include/mb,src/include/mb,,h
 src/include/port,src/include/port,,h
 src/include/port/win32,src/include/port/win32,,h
+src/include/port/win32/netinet,src/include/port/win32/netinet,,h
+src/include/port/win32/arpa,src/include/port/win32/arpa,,h
+src/include/port/win32/sys,src/include/port/win32/sys,,h
 src/include/port/win32_msvc,src/include/port/win32_msvc,,h
+src/include/port/win32_msvc/sys,src/include/port/win32_msvc/sys,,h
 src/interfaces/ecpg,src/interfaces/ecpg,skip,
 src/interfaces/libpq,src/interfaces/libpq,,"c,h,def,in"
 src/interfaces/libpq/po,src/interfaces/libpq/po,skip,
