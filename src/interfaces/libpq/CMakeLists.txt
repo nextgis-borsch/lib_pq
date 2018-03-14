@@ -135,9 +135,10 @@ endif()
 
 # Add path to includes to build-tree export
 target_include_directories(${LIB_NAME} PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/include>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src/include>
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src/port>
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src/include>
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src/include>
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src/port>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
 # Add all targets to the build-tree export set
