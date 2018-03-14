@@ -89,12 +89,12 @@ if(BUILD_SHARED_LIBS)
     set_target_properties(${LIB_NAME} PROPERTIES
         SOVERSION ${POSTGRES_MAJOR_VERSION}
         VERSION ${VERSION}
-        PUBLIC_HEADER "${ALL_PUBLIC_HDRS_PQ}")
+    )
 elseif(OSX_FRAMEWORK)
     add_library(${LIB_NAME} SHARED ${pq_SRCS} ${ALL_PUBLIC_HDRS_PQ})
-    #set_property(SOURCE ${PUBLIC_HDRS_PQ} PROPERTY MACOSX_PACKAGE_LOCATION "Headers/libpq")
+    set_property(SOURCE ${PUBLIC_HDRS_PQ} PROPERTY MACOSX_PACKAGE_LOCATION "Headers/libpq")
+    set_property(SOURCE ${PUBLIC_HDRS} PROPERTY MACOSX_PACKAGE_LOCATION "Headers")
     #set_property(SOURCE ${FINAL_HEADERS} PROPERTY MACOSX_PACKAGE_LOCATION "Headers/libpq")
-    #set_property(SOURCE ${PUBLIC_HDRS} PROPERTY MACOSX_PACKAGE_LOCATION "Headers")
 
     set_target_properties(${LIB_NAME} PROPERTIES
         SOVERSION ${POSTGRES_MAJOR_VERSION}
@@ -105,13 +105,14 @@ elseif(OSX_FRAMEWORK)
         MACOSX_FRAMEWORK_BUNDLE_VERSION ${VERSION}
         MACOSX_FRAMEWORK_IDENTIFIER org.postgresql.libpq
         XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
-        PUBLIC_HEADER "${ALL_PUBLIC_HDRS_PQ}")
+        PUBLIC_HEADER "${FINAL_HEADERS}"
+    )
 else()
     add_library(${LIB_NAME} STATIC ${pq_SRCS} ${ALL_PUBLIC_HDRS_PQ})
     set_target_properties(${LIB_NAME} PROPERTIES
         SOVERSION ${POSTGRES_MAJOR_VERSION}
         VERSION ${VERSION}
-        PUBLIC_HEADER "${ALL_PUBLIC_HDRS_PQ}")
+    )
 endif()
 
 target_link_extlibraries(${LIB_NAME})
