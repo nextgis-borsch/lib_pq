@@ -403,7 +403,17 @@ function(find_extproject name)
     endif()
 
     string(TOUPPER ${name} UPPER_NAME)
-    include(${EXT_BINARY_DIR}/${UPPER_NAME}Config.cmake)
+    if(EXISTS ${EXT_BINARY_DIR}/${UPPER_NAME}Config.cmake)
+        include(${EXT_BINARY_DIR}/${UPPER_NAME}Config.cmake)
+    else()
+        foreach(ALT_NAME ${find_extproject_NAMES})
+            string(TOUPPER ${ALT_NAME} ALT_UPPER_NAME)
+            if(EXISTS ${EXT_BINARY_DIR}/${ALT_UPPER_NAME}Config.cmake)
+                include(${EXT_BINARY_DIR}/${ALT_UPPER_NAME}Config.cmake)
+                break()
+            endif()
+        endforeach()
+    endif()
 
     set(${UPPER_NAME}_FOUND ${${UPPER_NAME}_FOUND} PARENT_SCOPE)
     set(${UPPER_NAME}_VERSION ${${UPPER_NAME}_VERSION} PARENT_SCOPE)
@@ -416,7 +426,11 @@ function(find_extproject name)
     add_dependencies(${${UPPER_NAME}_LIBRARIES} ${name}_EP)
 
     # On static build we need all targets in TARGET_LINK_LIB
-    set(EXPORTS_PATHS "${EXPORTS_PATHS} ${EXT_BINARY_DIR}/${UPPER_NAME}Targets.cmake" PARENT_SCOPE)
+    if(ALT_UPPER_NAME)
+        set(EXPORTS_PATHS "${EXPORTS_PATHS} ${EXT_BINARY_DIR}/${ALT_UPPER_NAME}Targets.cmake" PARENT_SCOPE)
+    else()
+        set(EXPORTS_PATHS "${EXPORTS_PATHS} ${EXT_BINARY_DIR}/${UPPER_NAME}Targets.cmake" PARENT_SCOPE)
+    endif()
 
     # For static builds we need all libraries list in main project.
     if(EXISTS ${EXT_BINARY_DIR}/ext_options.cmake)
