@@ -4,9 +4,9 @@
 # Author:   Mikhail Gusev, gusevmihs@gmail.com
 # Author:   Dmitry Baryshnikov, dmitry.baryshnikov@nextgis.com
 ################################################################################
-# Copyright (C) 2016-2018, NextGIS <info@nextgis.com>
+# Copyright (C) 2016-2019, NextGIS <info@nextgis.com>
 # Copyright (C) 2016, Mikhail Gusev
-# Copyright (c) 2018, Dmitry Baryshnikov
+# Copyright (c) 2018-2019, Dmitry Baryshnikov
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -33,13 +33,13 @@ function(check_version major minor release build)
     string(REGEX MATCH "FILEVERSION[ \t]+[0-9]+,[0-9]+,[0-9]+,[0-9]+" VERSION_STR ${FILE_CONTENTS})
     string(REGEX MATCHALL "[0-9]+" VERSIONS_LIST ${VERSION_STR})
     list(GET VERSIONS_LIST 0 VER_MAJOR)
-    list(GET VERSIONS_LIST 1 VER_MINOR)
-    list(GET VERSIONS_LIST 2 VER_RELEASE)
-    list(GET VERSIONS_LIST 3 VER_BUILD)
+    list(GET VERSIONS_LIST 2 VER_MINOR)
+    list(GET VERSIONS_LIST 3 VER_RELEASE)
+    # list(GET VERSIONS_LIST 2 VER_BUILD)
     set(${major} ${VER_MAJOR} PARENT_SCOPE)
     set(${minor} ${VER_MINOR} PARENT_SCOPE)
     set(${release} ${VER_RELEASE} PARENT_SCOPE)
-    set(${build} ${VER_BUILD} PARENT_SCOPE)
+    # set(${build} ${VER_BUILD} PARENT_SCOPE)
 
     # Store version string in file for installer needs
     file(TIMESTAMP ${filename} VERSION_DATETIME "%Y-%m-%d %H:%M:%S" UTC)
@@ -54,24 +54,6 @@ function(report_version name ver)
     set(ColourReset "${Esc}[m")
     message("${BoldYellow}${name} version ${ver}${ColourReset}")
 endfunction()
-
-# macro to find packages on the host OS
-macro( find_exthost_package )
-    if(CMAKE_CROSSCOMPILING)
-        set( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER )
-        set( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY NEVER )
-        set( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE NEVER )
-
-        find_package( ${ARGN} )
-
-        set( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM ONLY )
-        set( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
-        set( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
-    else()
-        find_package( ${ARGN} )
-    endif()
-endmacro()
-
 
 # macro to find programs on the host OS
 macro( find_exthost_program )
@@ -91,13 +73,29 @@ macro( find_exthost_program )
 endmacro()
 
 
+function(get_prefix prefix IS_STATIC)
+  if(IS_STATIC)
+    set(STATIC_PREFIX "static-")
+      if(ANDROID)
+        set(STATIC_PREFIX "${STATIC_PREFIX}android-${ANDROID_ABI}-")
+      elseif(IOS)
+        set(STATIC_PREFIX "${STATIC_PREFIX}ios-${IOS_ARCH}-")
+      endif()
+    endif()
+  set(${prefix} ${STATIC_PREFIX} PARENT_SCOPE)
+endfunction()
+
+
 function(get_cpack_filename ver name)
     get_compiler_version(COMPILER)
-    if(BUILD_STATIC_LIBS)
-        set(STATIC_PREFIX "static-")
+    
+    if(NOT DEFINED BUILD_STATIC_LIBS)
+      set(BUILD_STATIC_LIBS OFF)
     endif()
 
-    set(${name} ${PROJECT_NAME}-${STATIC_PREFIX}${ver}-${COMPILER} PARENT_SCOPE)
+    get_prefix(STATIC_PREFIX ${BUILD_STATIC_LIBS})
+
+    set(${name} ${PROJECT_NAME}-${ver}-${STATIC_PREFIX}${COMPILER} PARENT_SCOPE)
 endfunction()
 
 function(get_compiler_version ver)

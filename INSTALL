@@ -1,9 +1,8 @@
                   PostgreSQL Installation from Source Code
+     __________________________________________________________________
 
-   This document describes the installation of PostgreSQL using the source
-   code distribution. (If you are installing a pre-packaged distribution,
-   such as an RPM or Debian package, ignore this document and read the
-   packager's instructions instead.)
+   This document describes the installation of PostgreSQL using this
+   source code distribution.
      __________________________________________________________________
 
                                 Short Version
@@ -39,6 +38,7 @@ su - postgres
        older GNU make versions will *not* work. (GNU make is sometimes
        installed under the name "gmake".) To test for GNU make enter:
 make --version
+
      * You need an ISO/ANSI C compiler (at least C89-compliant). Recent
        versions of GCC are recommended, but PostgreSQL is known to build
        using a wide variety of compilers from different vendors.
@@ -118,17 +118,17 @@ make --version
    package, or if you want to do server development, you also need the
    following packages:
 
-     * GNU Flex and Bison are needed to build from a Git checkout, or if
-       you changed the actual scanner and parser definition files. If you
-       need them, be sure to get Flex 2.5.31 or later and Bison 1.875 or
-       later. Other lex and yacc programs cannot be used.
+     * Flex and Bison are needed to build from a Git checkout, or if you
+       changed the actual scanner and parser definition files. If you need
+       them, be sure to get Flex 2.5.31 or later and Bison 1.875 or later.
+       Other lex and yacc programs cannot be used.
      * Perl 5.8.3 or later is needed to build from a Git checkout, or if
        you changed the input files for any of the build steps that use
        Perl scripts. If building on Windows you will need Perl in any
        case. Perl is also required to run some test suites.
 
    If you need to get a GNU package, you can find it at your local GNU
-   mirror site (see http://www.gnu.org/order/ftp.html for a list) or at
+   mirror site (see https://www.gnu.org/prep/ftp for a list) or at
    ftp://ftp.gnu.org/gnu/.
 
    Also check that you have sufficient disk space. You will need about 100
@@ -148,6 +148,7 @@ make --version
        This is done by running the "configure" script. For a default
        installation simply enter:
 ./configure
+
        This script will run a number of tests to determine values for
        various system dependent variables and detect any quirks of your
        operating system, and finally will create several files in the
@@ -159,6 +160,7 @@ mkdir build_dir
 cd build_dir
 /path/to/source/tree/configure [options go here]
 make
+
        The default configuration will build the server and utilities, as
        well as all client applications and interfaces that require only a
        C compiler. All files will be installed under "/usr/local/pgsql" by
@@ -344,6 +346,25 @@ make
                 to change this unless you have a Windows environment, in
                 which case it must be set to upper case POSTGRES.
 
+        --with-llvm
+                Build with support for LLVM based JIT compilation. This
+                requires the LLVM library to be installed. The minimum
+                required version of LLVM is currently 3.9.
+
+                "llvm-config" will be used to find the required
+                compilation options. "llvm-config", and then
+                "llvm-config-$major-$minor" for all supported versions,
+                will be searched on PATH. If that would not yield the
+                correct binary, use LLVM_CONFIG to specify a path to the
+                correct "llvm-config". For example
+
+./configure ... --with-llvm LLVM_CONFIG='/path/to/llvm/bin/llvm-config'
+
+                LLVM support requires a compatible "clang" compiler
+                (specified, if necessary, using the CLANG environment
+                variable), and a working C++ compiler (specified, if
+                necessary, using the CXX environment variable).
+
         --with-icu
                 Build with support for the ICU library. This requires the
                 ICU4C package to be installed. The minimum required
@@ -489,14 +510,6 @@ where/lib -licui18n -licuuc -licudata'
                 useful in special cases. The value must be a power of 2
                 between 1 and 32 (kilobytes). Note that changing this
                 value requires an initdb.
-
-        --with-wal-segsize=SEGSIZE
-                Set the WAL segment size, in megabytes. This is the size
-                of each individual file in the WAL log. It may be useful
-                to adjust this size to control the granularity of WAL log
-                shipping. The default size is 16 megabytes. The value must
-                be a power of 2 between 1 and 1024 (megabytes). Note that
-                changing this value requires an initdb.
 
         --with-wal-blocksize=BLOCKSIZE
                 Set the WAL block size, in kilobytes. This is the unit of
@@ -646,6 +659,7 @@ AGS='-64' ...
        You can specify environment variables on the "configure" command
        line, for example:
 ./configure CC=/opt/bin/gcc CFLAGS='-O2 -pipe'
+
        Here is a list of the significant variables that can be set in this
        manner:
 
@@ -658,11 +672,21 @@ AGS='-64' ...
         CFLAGS
                 options to pass to the C compiler
 
+        CLANG
+                path to "clang" program used to process source code for
+                inlining when compiling with --with-llvm
+
         CPP
                 C preprocessor
 
         CPPFLAGS
                 options to pass to the C preprocessor
+
+        CXX
+                C++ compiler
+
+        CXXFLAGS
+                options to pass to the C++ compiler
 
         DTRACE
                 location of the "dtrace" program
@@ -683,25 +707,31 @@ AGS='-64' ...
         LDFLAGS_SL
                 additional options for linking shared libraries only
 
+        LLVM_CONFIG
+                "llvm-config" program used to locate the LLVM
+                installation.
+
         MSGFMT
                 "msgfmt" program for native language support
 
         PERL
-                Full path name of the Perl interpreter. This will be used
-                to determine the dependencies for building PL/Perl.
+                Perl interpreter program. This will be used to determine
+                the dependencies for building PL/Perl. The default is
+                "perl".
 
         PYTHON
-                Full path name of the Python interpreter. This will be
-                used to determine the dependencies for building PL/Python.
-                Also, whether Python 2 or 3 is specified here (or
-                otherwise implicitly chosen) determines which variant of
-                the PL/Python language becomes available. See the
-                PL/Python documentation for more information.
+                Python interpreter program. This will be used to determine
+                the dependencies for building PL/Python. Also, whether
+                Python 2 or 3 is specified here (or otherwise implicitly
+                chosen) determines which variant of the PL/Python language
+                becomes available. See the PL/Python documentation for
+                more information. If this is not set, the following are
+                probed in this order: python python3 python2.
 
         TCLSH
-                Full path name of the Tcl interpreter. This will be used
-                to determine the dependencies for building PL/Tcl, and it
-                will be substituted into Tcl scripts.
+                Tcl interpreter program. This will be used to determine
+                the dependencies for building PL/Tcl, and it will be
+                substituted into Tcl scripts.
 
         XML2_CONFIG
                 "xml2-config" program used to locate the libxml
@@ -716,9 +746,11 @@ AGS='-64' ...
        both the CFLAGS and LDFLAGS options set up by "configure". For
        example, you could do
 make COPT='-Werror'
+
        or
 export COPT='-Werror'
 make
+
        Note:
        When developing code inside the server, it is recommended to use
        the configure options "--enable-cassert" (which turns on many
@@ -739,25 +771,39 @@ make
        PROFILE for one-time flag adjustments, while COPT might be kept set
        all the time.
     2. Build
-       To start the build, type:
+       To start the build, type either of:
 make
+make all
+
        (Remember to use GNU make.) The build will take a few minutes
        depending on your hardware. The last line displayed should be:
 All of PostgreSQL successfully made. Ready to install.
+
        If you want to build everything that can be built, including the
        documentation (HTML and man pages), and the additional modules
        ("contrib"), type instead:
 make world
+
        The last line displayed should be:
 PostgreSQL, contrib, and documentation successfully made. Ready to install.
+
+       If you want to invoke the build from another makefile rather than
+       manually, you must unset MAKELEVEL or set it to zero, for instance
+       like this:
+build-postgresql:
+        $(MAKE) -C postgresql MAKELEVEL=0 all
+
+       Failure to do that can lead to strange error messages, typically
+       about missing header files.
     3. Regression Tests
        If you want to test the newly built server before you install it,
        you can run the regression tests at this point. The regression
        tests are a test suite to verify that PostgreSQL runs on your
        machine in the way the developers expected it to. Type:
 make check
-       (This won't work as root; do it as an unprivileged user.) The file
-       "src/test/regress/README" and the documentation contain detailed
+
+       (This won't work as root; do it as an unprivileged user.) See the
+       file "src/test/regress/README" and the documentation for detailed
        information about interpreting the test results. You can repeat
        this test at any later time by issuing the same command.
     4. Installing the Files
@@ -766,6 +812,7 @@ make check
        documentation, which has instructions about upgrading a cluster.
        To install PostgreSQL enter:
 make install
+
        This will install files into the directories that were specified in
        Step 1. Make sure that you have appropriate permissions to write
        into that area. Normally you need to do this step as root.
@@ -773,8 +820,10 @@ make install
        arrange for appropriate permissions to be granted.
        To install the documentation (HTML and man pages), enter:
 make install-docs
+
        If you built the world above, type instead:
 make install-world
+
        This also installs the documentation.
        You can use make install-strip instead of make install to strip the
        executable files and libraries as they are installed. This will
@@ -798,6 +847,7 @@ make -C src/bin install
 make -C src/include install
 make -C src/interfaces install
 make -C doc install
+
        "src/bin" has a few binaries for server-only use, but they are
        small.
 
@@ -846,7 +896,7 @@ setenv LD_LIBRARY_PATH /usr/local/pgsql/lib
    Step 1. You should put these commands into a shell start-up file such
    as "/etc/profile" or "~/.bash_profile". Some good information about the
    caveats associated with this method can be found at
-   http://xahlee.org/UnixResource_dir/_/ldpath.html.
+   http://xahlee.info/UnixResource_dir/_/ldpath.html.
 
    On some systems it might be preferable to set the environment variable
    LD_RUN_PATH *before* building.
@@ -1010,9 +1060,9 @@ psql testdb
 
    If you have installation problems on a platform that is known to be
    supported according to recent build farm results, please report it to
-   <pgsql-bugs@postgresql.org>. If you are interested in porting
-   PostgreSQL to a new platform, <pgsql-hackers@postgresql.org> is the
-   appropriate place to discuss that.
+   <pgsql-bugs@lists.postgresql.org>. If you are interested in porting
+   PostgreSQL to a new platform, <pgsql-hackers@lists.postgresql.org> is
+   the appropriate place to discuss that.
      __________________________________________________________________
 
                            Platform-specific Notes
@@ -1112,12 +1162,15 @@ Internet Address Issues
      * Delete the IPv6 address for localhost:
 (as root)
 # ifconfig lo0 inet6 ::1/0 delete
+
      * Remove IPv6 from net services. The file "/etc/netsvc.conf" on AIX
        is roughly equivalent to "/etc/nsswitch.conf" on Solaris/Linux. The
        default, on AIX, is thus:
 hosts=local,bind
+
        Replace this with:
 hosts=local4,bind4
+
        to deactivate searching for IPv6 addresses.
 
    Warning:
@@ -1249,6 +1302,7 @@ Cygwin
        limit the number of connections using the make variable
        MAX_CONNECTIONS thus:
 make MAX_CONNECTIONS=5 check
+
        (On some systems you can have up to about 10 simultaneous
        connections).
 
@@ -1315,6 +1369,36 @@ HP-UX
    for suspicion.
      __________________________________________________________________
 
+macOS
+
+   On recent macOS releases, it's necessary to embed the "sysroot" path in
+   the include switches used to find some system header files. This
+   results in the outputs of the configure script varying depending on
+   which SDK version was used during configure. That shouldn't pose any
+   problem in simple scenarios, but if you are trying to do something like
+   building an extension on a different machine than the server code was
+   built on, you may need to force use of a different sysroot path. To do
+   that, set PG_SYSROOT, for example
+make PG_SYSROOT=/desired/path all
+
+   To find out the appropriate path on your machine, run
+xcodebuild -version -sdk macosx Path
+
+   Note that building an extension using a different sysroot version than
+   was used to build the core server is not really recommended; in the
+   worst case it could result in hard-to-debug ABI inconsistencies.
+
+   You can also select a non-default sysroot path when configuring, by
+   specifying PG_SYSROOT to configure:
+./configure ... PG_SYSROOT=/desired/path
+
+   macOS's "System Integrity Protection" (SIP) feature breaks make check,
+   because it prevents passing the needed setting of DYLD_LIBRARY_PATH
+   down to the executables being tested. You can work around that by doing
+   make install before make check. Most Postgres developers just turn off
+   SIP, though.
+     __________________________________________________________________
+
 MinGW/Native Windows
 
    PostgreSQL for Windows can be built using MinGW, a Unix-like build
@@ -1334,8 +1418,8 @@ MinGW/Native Windows
    for creating the binaries.
 
    To build 64 bit binaries using MinGW, install the 64 bit tool set from
-   http://mingw-w64.sourceforge.net/, put its bin directory in the PATH,
-   and run "configure" with the "--host=x86_64-w64-mingw32" option.
+   https://mingw-w64.org/, put its bin directory in the PATH, and run
+   "configure" with the "--host=x86_64-w64-mingw32" option.
 
    After you have everything installed, it is suggested that you run psql
    under "CMD.EXE", as the MSYS console has buffering issues.
@@ -1368,12 +1452,12 @@ Required Tools
    careful not to select "/usr/ucb/cc"; use "/opt/SUNWspro/bin/cc".
 
    You can download Sun Studio from
-   http://www.oracle.com/technetwork/server-storage/solarisstudio/download
-   s/. Many of GNU tools are integrated into Solaris 10, or they are
+   https://www.oracle.com/technetwork/server-storage/solarisstudio/downloa
+   ds/. Many of GNU tools are integrated into Solaris 10, or they are
    present on the Solaris companion CD. If you like packages for older
    version of Solaris, you can find these tools at
    http://www.sunfreeware.com. If you prefer sources, look at
-   http://www.gnu.org/order/ftp.html.
+   https://www.gnu.org/prep/ftp.
      __________________________________________________________________
 
 configure Complains About a Failed Test Program

@@ -26,6 +26,7 @@ set(pq_SRCS
 	fe-secure.c
 	libpq-events.c
     fe-auth-scram.c
+    fe-secure-common.c
 
 	${PORT_DIR}/chklocale.c
 	${PORT_DIR}/erand48.c
@@ -33,20 +34,31 @@ set(pq_SRCS
 	${PORT_DIR}/noblock.c
 	${PORT_DIR}/pgstrcasecmp.c
 	${PORT_DIR}/pqsignal.c
-	${PORT_DIR}/thread.c
+    ${PORT_DIR}/thread.c
+    ${PORT_DIR}/strnlen.c
 
     ${PROJECT_SOURCE_DIR}/src/common/base64.c
 	${PROJECT_SOURCE_DIR}/src/common/ip.c
 	${PROJECT_SOURCE_DIR}/src/common/md5.c
 	${PROJECT_SOURCE_DIR}/src/common/scram-common.c
 	${PROJECT_SOURCE_DIR}/src/common/saslprep.c
-	${PROJECT_SOURCE_DIR}/src/common/unicode_norm.c
+    ${PROJECT_SOURCE_DIR}/src/common/unicode_norm.c
+    ${PROJECT_SOURCE_DIR}/src/common/file_perm.c
+
 	${MB_UTILS_BACKEND_DIR}/encnames.c
 	${MB_UTILS_BACKEND_DIR}/wchar.c
 
 	${fallback_SRCS}
 	${pq_ssl_SRCS}
 )
+
+if(ANDROID OR IOS)
+    set(pq_SRCS ${pq_SRCS}
+        ${PORT_DIR}/pg_crc32c_armv8.c
+        ${PORT_DIR}/pg_crc32c_armv8_choose.c
+        ${PORT_DIR}/pg_crc32c_sse42_choose.c
+    )
+endif()
 
 if(WIN32)
 	configure_file(libpq.rc.in ${CMAKE_CURRENT_BINARY_DIR}/libpq.rc)
