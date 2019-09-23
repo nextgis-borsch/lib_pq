@@ -8,7 +8,7 @@ include_directories(BEFORE
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 if(USE_OPENSSL)
-	set(pq_ssl_SRCS fe-secure-openssl.c ${PROJECT_SOURCE_DIR}/src/common/sha2_openssl.c)
+	set(pq_ssl_SRCS fe-secure-common.c fe-secure-openssl.c ${PROJECT_SOURCE_DIR}/src/common/sha2_openssl.c)
 else()
     set(pq_ssl_SRCS ${PROJECT_SOURCE_DIR}/src/common/sha2.c)
 endif()
@@ -26,7 +26,6 @@ set(pq_SRCS
 	fe-secure.c
 	libpq-events.c
     fe-auth-scram.c
-    fe-secure-common.c
 
 	${PORT_DIR}/chklocale.c
 	${PORT_DIR}/erand48.c
