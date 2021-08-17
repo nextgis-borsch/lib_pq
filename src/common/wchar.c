@@ -1,30 +1,38 @@
-/*
- * conversion functions between pg_wchar and multibyte streams.
- * Tatsuo Ishii
- * src/backend/utils/mb/wchar.c
+/*-------------------------------------------------------------------------
  *
+ * wchar.c
+ *	  Functions for working with multibyte characters in various encodings.
+ *
+ * Portions Copyright (c) 1998-2020, PostgreSQL Global Development Group
+ *
+ * IDENTIFICATION
+ *	  src/common/wchar.c
+ *
+ *-------------------------------------------------------------------------
  */
-/* can be used in either frontend or backend */
-#ifdef FRONTEND
-#include "postgres_fe.h"
-#else
-#include "postgres.h"
-#endif
+#include "c.h"
 
 #include "mb/pg_wchar.h"
 
 
 /*
- * conversion to pg_wchar is done by "table driven."
- * to add an encoding support, define mb2wchar_with_len(), mblen(), dsplen()
- * for the particular encoding. Note that if the encoding is only
- * supported in the client, you don't need to define
- * mb2wchar_with_len() function (SJIS is the case).
+ * Operations on multi-byte encodings are driven by a table of helper
+ * functions.
+ *
+ * To add an encoding support, define mblen(), dsplen() and verifier() for
+ * the encoding.  For server-encodings, also define mb2wchar() and wchar2mb()
+ * conversion functions.
  *
  * These functions generally assume that their input is validly formed.
  * The "verifier" functions, further down in the file, have to be more
- * paranoid.  We expect that mblen() does not need to examine more than
- * the first byte of the character to discover the correct length.
+ * paranoid.
+ *
+ * We expect that mblen() does not need to examine more than the first byte
+ * of the character to discover the correct length.  GB18030 is an exception
+ * to that rule, though, as it also looks at second byte.  But even that
+ * behaves in a predictable way, if you only pass the first byte: it will
+ * treat 4-byte encoded characters as two 2-byte encoded characters, which is
+ * good enough for all current uses.
  *
  * Note: for the display output of psql to work properly, the return values
  * of the dsplen functions must conform to the Unicode standard. In particular
@@ -564,7 +572,7 @@ pg_utf_mblen(const unsigned char *s)
 /*
  * This is an implementation of wcwidth() and wcswidth() as defined in
  * "The Single UNIX Specification, Version 2, The Open Group, 1997"
- * <http://www.UNIX-systems.org/online.html>
+ * <http://www.unix.org/online.html>
  *
  * Markus Kuhn -- 2001-09-08 -- public domain
  *
@@ -636,43 +644,7 @@ mbbisearch(pg_wchar ucs, const struct mbinterval *table, int max)
 static int
 ucs_wcwidth(pg_wchar ucs)
 {
-	/* sorted list of non-overlapping intervals of non-spacing characters */
-	static const struct mbinterval combining[] = {
-		{0x0300, 0x034E}, {0x0360, 0x0362}, {0x0483, 0x0486},
-		{0x0488, 0x0489}, {0x0591, 0x05A1}, {0x05A3, 0x05B9},
-		{0x05BB, 0x05BD}, {0x05BF, 0x05BF}, {0x05C1, 0x05C2},
-		{0x05C4, 0x05C4}, {0x064B, 0x0655}, {0x0670, 0x0670},
-		{0x06D6, 0x06E4}, {0x06E7, 0x06E8}, {0x06EA, 0x06ED},
-		{0x070F, 0x070F}, {0x0711, 0x0711}, {0x0730, 0x074A},
-		{0x07A6, 0x07B0}, {0x0901, 0x0902}, {0x093C, 0x093C},
-		{0x0941, 0x0948}, {0x094D, 0x094D}, {0x0951, 0x0954},
-		{0x0962, 0x0963}, {0x0981, 0x0981}, {0x09BC, 0x09BC},
-		{0x09C1, 0x09C4}, {0x09CD, 0x09CD}, {0x09E2, 0x09E3},
-		{0x0A02, 0x0A02}, {0x0A3C, 0x0A3C}, {0x0A41, 0x0A42},
-		{0x0A47, 0x0A48}, {0x0A4B, 0x0A4D}, {0x0A70, 0x0A71},
-		{0x0A81, 0x0A82}, {0x0ABC, 0x0ABC}, {0x0AC1, 0x0AC5},
-		{0x0AC7, 0x0AC8}, {0x0ACD, 0x0ACD}, {0x0B01, 0x0B01},
-		{0x0B3C, 0x0B3C}, {0x0B3F, 0x0B3F}, {0x0B41, 0x0B43},
-		{0x0B4D, 0x0B4D}, {0x0B56, 0x0B56}, {0x0B82, 0x0B82},
-		{0x0BC0, 0x0BC0}, {0x0BCD, 0x0BCD}, {0x0C3E, 0x0C40},
-		{0x0C46, 0x0C48}, {0x0C4A, 0x0C4D}, {0x0C55, 0x0C56},
-		{0x0CBF, 0x0CBF}, {0x0CC6, 0x0CC6}, {0x0CCC, 0x0CCD},
-		{0x0D41, 0x0D43}, {0x0D4D, 0x0D4D}, {0x0DCA, 0x0DCA},
-		{0x0DD2, 0x0DD4}, {0x0DD6, 0x0DD6}, {0x0E31, 0x0E31},
-		{0x0E34, 0x0E3A}, {0x0E47, 0x0E4E}, {0x0EB1, 0x0EB1},
-		{0x0EB4, 0x0EB9}, {0x0EBB, 0x0EBC}, {0x0EC8, 0x0ECD},
-		{0x0F18, 0x0F19}, {0x0F35, 0x0F35}, {0x0F37, 0x0F37},
-		{0x0F39, 0x0F39}, {0x0F71, 0x0F7E}, {0x0F80, 0x0F84},
-		{0x0F86, 0x0F87}, {0x0F90, 0x0F97}, {0x0F99, 0x0FBC},
-		{0x0FC6, 0x0FC6}, {0x102D, 0x1030}, {0x1032, 0x1032},
-		{0x1036, 0x1037}, {0x1039, 0x1039}, {0x1058, 0x1059},
-		{0x1160, 0x11FF}, {0x17B7, 0x17BD}, {0x17C6, 0x17C6},
-		{0x17C9, 0x17D3}, {0x180B, 0x180E}, {0x18A9, 0x18A9},
-		{0x200B, 0x200F}, {0x202A, 0x202E}, {0x206A, 0x206F},
-		{0x20D0, 0x20E3}, {0x302A, 0x302F}, {0x3099, 0x309A},
-		{0xFB1E, 0xFB1E}, {0xFE20, 0xFE23}, {0xFEFF, 0xFEFF},
-		{0xFFF9, 0xFFFB}
-	};
+#include "common/unicode_combining_table.h"
 
 	/* test for 8-bit control characters */
 	if (ucs == 0)
@@ -862,6 +834,7 @@ pg_wchar2mule_with_len(const pg_wchar *from, unsigned char *to, int len)
 	return cnt;
 }
 
+/* exported for direct use by conv.c */
 int
 pg_mule_mblen(const unsigned char *s)
 {
@@ -1072,6 +1045,17 @@ pg_uhc_dsplen(const unsigned char *s)
 /*
  * GB18030
  *	Added by Bill Huang <bhuang@redhat.com>,<bill_huanghb@ybb.ne.jp>
+ */
+
+/*
+ * Unlike all other mblen() functions, this also looks at the second byte of
+ * the input.  However, if you only pass the first byte of a multi-byte
+ * string, and \0 as the second byte, this still works in a predictable way:
+ * a 4-byte character will be reported as two 2-byte characters.  That's
+ * enough for all current uses, as a client-only encoding.  It works that
+ * way, because in any valid 4-byte GB18030-encoded character, the third and
+ * fourth byte look like a 2-byte encoded character, when looked at
+ * separately.
  */
 static int
 pg_gb18030_mblen(const unsigned char *s)
@@ -1511,214 +1495,6 @@ pg_utf8_islegal(const unsigned char *source, int length)
 	return true;
 }
 
-#ifndef FRONTEND
-
-/*
- * Generic character incrementer function.
- *
- * Not knowing anything about the properties of the encoding in use, we just
- * keep incrementing the last byte until we get a validly-encoded result,
- * or we run out of values to try.  We don't bother to try incrementing
- * higher-order bytes, so there's no growth in runtime for wider characters.
- * (If we did try to do that, we'd need to consider the likelihood that 255
- * is not a valid final byte in the encoding.)
- */
-static bool
-pg_generic_charinc(unsigned char *charptr, int len)
-{
-	unsigned char *lastbyte = charptr + len - 1;
-	mbverifier	mbverify;
-
-	/* We can just invoke the character verifier directly. */
-	mbverify = pg_wchar_table[GetDatabaseEncoding()].mbverify;
-
-	while (*lastbyte < (unsigned char) 255)
-	{
-		(*lastbyte)++;
-		if ((*mbverify) (charptr, len) == len)
-			return true;
-	}
-
-	return false;
-}
-
-/*
- * UTF-8 character incrementer function.
- *
- * For a one-byte character less than 0x7F, we just increment the byte.
- *
- * For a multibyte character, every byte but the first must fall between 0x80
- * and 0xBF; and the first byte must be between 0xC0 and 0xF4.  We increment
- * the last byte that's not already at its maximum value.  If we can't find a
- * byte that's less than the maximum allowable value, we simply fail.  We also
- * need some special-case logic to skip regions used for surrogate pair
- * handling, as those should not occur in valid UTF-8.
- *
- * Note that we don't reset lower-order bytes back to their minimums, since
- * we can't afford to make an exhaustive search (see make_greater_string).
- */
-static bool
-pg_utf8_increment(unsigned char *charptr, int length)
-{
-	unsigned char a;
-	unsigned char limit;
-
-	switch (length)
-	{
-		default:
-			/* reject lengths 5 and 6 for now */
-			return false;
-		case 4:
-			a = charptr[3];
-			if (a < 0xBF)
-			{
-				charptr[3]++;
-				break;
-			}
-			/* FALL THRU */
-		case 3:
-			a = charptr[2];
-			if (a < 0xBF)
-			{
-				charptr[2]++;
-				break;
-			}
-			/* FALL THRU */
-		case 2:
-			a = charptr[1];
-			switch (*charptr)
-			{
-				case 0xED:
-					limit = 0x9F;
-					break;
-				case 0xF4:
-					limit = 0x8F;
-					break;
-				default:
-					limit = 0xBF;
-					break;
-			}
-			if (a < limit)
-			{
-				charptr[1]++;
-				break;
-			}
-			/* FALL THRU */
-		case 1:
-			a = *charptr;
-			if (a == 0x7F || a == 0xDF || a == 0xEF || a == 0xF4)
-				return false;
-			charptr[0]++;
-			break;
-	}
-
-	return true;
-}
-
-/*
- * EUC-JP character incrementer function.
- *
- * If the sequence starts with SS2 (0x8e), it must be a two-byte sequence
- * representing JIS X 0201 characters with the second byte ranging between
- * 0xa1 and 0xdf.  We just increment the last byte if it's less than 0xdf,
- * and otherwise rewrite the whole sequence to 0xa1 0xa1.
- *
- * If the sequence starts with SS3 (0x8f), it must be a three-byte sequence
- * in which the last two bytes range between 0xa1 and 0xfe.  The last byte
- * is incremented if possible, otherwise the second-to-last byte.
- *
- * If the sequence starts with a value other than the above and its MSB
- * is set, it must be a two-byte sequence representing JIS X 0208 characters
- * with both bytes ranging between 0xa1 and 0xfe.  The last byte is
- * incremented if possible, otherwise the second-to-last byte.
- *
- * Otherwise, the sequence is a single-byte ASCII character. It is
- * incremented up to 0x7f.
- */
-static bool
-pg_eucjp_increment(unsigned char *charptr, int length)
-{
-	unsigned char c1,
-				c2;
-	int			i;
-
-	c1 = *charptr;
-
-	switch (c1)
-	{
-		case SS2:				/* JIS X 0201 */
-			if (length != 2)
-				return false;
-
-			c2 = charptr[1];
-
-			if (c2 >= 0xdf)
-				charptr[0] = charptr[1] = 0xa1;
-			else if (c2 < 0xa1)
-				charptr[1] = 0xa1;
-			else
-				charptr[1]++;
-			break;
-
-		case SS3:				/* JIS X 0212 */
-			if (length != 3)
-				return false;
-
-			for (i = 2; i > 0; i--)
-			{
-				c2 = charptr[i];
-				if (c2 < 0xa1)
-				{
-					charptr[i] = 0xa1;
-					return true;
-				}
-				else if (c2 < 0xfe)
-				{
-					charptr[i]++;
-					return true;
-				}
-			}
-
-			/* Out of 3-byte code region */
-			return false;
-
-		default:
-			if (IS_HIGHBIT_SET(c1)) /* JIS X 0208? */
-			{
-				if (length != 2)
-					return false;
-
-				for (i = 1; i >= 0; i--)
-				{
-					c2 = charptr[i];
-					if (c2 < 0xa1)
-					{
-						charptr[i] = 0xa1;
-						return true;
-					}
-					else if (c2 < 0xfe)
-					{
-						charptr[i]++;
-						return true;
-					}
-				}
-
-				/* Out of 2 byte code region */
-				return false;
-			}
-			else
-			{					/* ASCII, single byte */
-				if (c1 > 0x7e)
-					return false;
-				(*charptr)++;
-			}
-			break;
-	}
-
-	return true;
-}
-#endif							/* !FRONTEND */
-
 
 /*
  *-------------------------------------------------------------------
@@ -1771,15 +1547,13 @@ const pg_wchar_tbl pg_wchar_table[] = {
 	{0, 0, pg_sjis_mblen, pg_sjis_dsplen, pg_sjis_verifier, 2}	/* PG_SHIFT_JIS_2004 */
 };
 
-/* returns the byte length of a word for mule internal code */
-int
-pg_mic_mblen(const unsigned char *mbstr)
-{
-	return pg_mule_mblen(mbstr);
-}
-
 /*
  * Returns the byte length of a multibyte character.
+ *
+ * Caution: when dealing with text that is not certainly valid in the
+ * specified encoding, the result may exceed the actual remaining
+ * string length.  Callers that are not prepared to deal with that
+ * should use pg_encoding_mblen_bounded() instead.
  */
 int
 pg_encoding_mblen(int encoding, const char *mbstr)
@@ -1787,6 +1561,16 @@ pg_encoding_mblen(int encoding, const char *mbstr)
 	return (PG_VALID_ENCODING(encoding) ?
 			pg_wchar_table[encoding].mblen((const unsigned char *) mbstr) :
 			pg_wchar_table[PG_SQL_ASCII].mblen((const unsigned char *) mbstr));
+}
+
+/*
+ * Returns the byte length of a multibyte character; but not more than
+ * the distance to end of string.
+ */
+int
+pg_encoding_mblen_bounded(int encoding, const char *mbstr)
+{
+	return strnlen(mbstr, pg_encoding_mblen(encoding, mbstr));
 }
 
 /*
@@ -1823,232 +1607,3 @@ pg_encoding_max_length(int encoding)
 
 	return pg_wchar_table[encoding].maxmblen;
 }
-
-#ifndef FRONTEND
-
-/*
- * fetch maximum length of the encoding for the current database
- */
-int
-pg_database_encoding_max_length(void)
-{
-	return pg_wchar_table[GetDatabaseEncoding()].maxmblen;
-}
-
-/*
- * get the character incrementer for the encoding for the current database
- */
-mbcharacter_incrementer
-pg_database_encoding_character_incrementer(void)
-{
-	/*
-	 * Eventually it might be best to add a field to pg_wchar_table[], but for
-	 * now we just use a switch.
-	 */
-	switch (GetDatabaseEncoding())
-	{
-		case PG_UTF8:
-			return pg_utf8_increment;
-
-		case PG_EUC_JP:
-			return pg_eucjp_increment;
-
-		default:
-			return pg_generic_charinc;
-	}
-}
-
-/*
- * Verify mbstr to make sure that it is validly encoded in the current
- * database encoding.  Otherwise same as pg_verify_mbstr().
- */
-bool
-pg_verifymbstr(const char *mbstr, int len, bool noError)
-{
-	return
-		pg_verify_mbstr_len(GetDatabaseEncoding(), mbstr, len, noError) >= 0;
-}
-
-/*
- * Verify mbstr to make sure that it is validly encoded in the specified
- * encoding.
- */
-bool
-pg_verify_mbstr(int encoding, const char *mbstr, int len, bool noError)
-{
-	return pg_verify_mbstr_len(encoding, mbstr, len, noError) >= 0;
-}
-
-/*
- * Verify mbstr to make sure that it is validly encoded in the specified
- * encoding.
- *
- * mbstr is not necessarily zero terminated; length of mbstr is
- * specified by len.
- *
- * If OK, return length of string in the encoding.
- * If a problem is found, return -1 when noError is
- * true; when noError is false, ereport() a descriptive message.
- */
-int
-pg_verify_mbstr_len(int encoding, const char *mbstr, int len, bool noError)
-{
-	mbverifier	mbverify;
-	int			mb_len;
-
-	Assert(PG_VALID_ENCODING(encoding));
-
-	/*
-	 * In single-byte encodings, we need only reject nulls (\0).
-	 */
-	if (pg_encoding_max_length(encoding) <= 1)
-	{
-		const char *nullpos = memchr(mbstr, 0, len);
-
-		if (nullpos == NULL)
-			return len;
-		if (noError)
-			return -1;
-		report_invalid_encoding(encoding, nullpos, 1);
-	}
-
-	/* fetch function pointer just once */
-	mbverify = pg_wchar_table[encoding].mbverify;
-
-	mb_len = 0;
-
-	while (len > 0)
-	{
-		int			l;
-
-		/* fast path for ASCII-subset characters */
-		if (!IS_HIGHBIT_SET(*mbstr))
-		{
-			if (*mbstr != '\0')
-			{
-				mb_len++;
-				mbstr++;
-				len--;
-				continue;
-			}
-			if (noError)
-				return -1;
-			report_invalid_encoding(encoding, mbstr, len);
-		}
-
-		l = (*mbverify) ((const unsigned char *) mbstr, len);
-
-		if (l < 0)
-		{
-			if (noError)
-				return -1;
-			report_invalid_encoding(encoding, mbstr, len);
-		}
-
-		mbstr += l;
-		len -= l;
-		mb_len++;
-	}
-	return mb_len;
-}
-
-/*
- * check_encoding_conversion_args: check arguments of a conversion function
- *
- * "expected" arguments can be either an encoding ID or -1 to indicate that
- * the caller will check whether it accepts the ID.
- *
- * Note: the errors here are not really user-facing, so elog instead of
- * ereport seems sufficient.  Also, we trust that the "expected" encoding
- * arguments are valid encoding IDs, but we don't trust the actuals.
- */
-void
-check_encoding_conversion_args(int src_encoding,
-							   int dest_encoding,
-							   int len,
-							   int expected_src_encoding,
-							   int expected_dest_encoding)
-{
-	if (!PG_VALID_ENCODING(src_encoding))
-		elog(ERROR, "invalid source encoding ID: %d", src_encoding);
-	if (src_encoding != expected_src_encoding && expected_src_encoding >= 0)
-		elog(ERROR, "expected source encoding \"%s\", but got \"%s\"",
-			 pg_enc2name_tbl[expected_src_encoding].name,
-			 pg_enc2name_tbl[src_encoding].name);
-	if (!PG_VALID_ENCODING(dest_encoding))
-		elog(ERROR, "invalid destination encoding ID: %d", dest_encoding);
-	if (dest_encoding != expected_dest_encoding && expected_dest_encoding >= 0)
-		elog(ERROR, "expected destination encoding \"%s\", but got \"%s\"",
-			 pg_enc2name_tbl[expected_dest_encoding].name,
-			 pg_enc2name_tbl[dest_encoding].name);
-	if (len < 0)
-		elog(ERROR, "encoding conversion length must not be negative");
-}
-
-/*
- * report_invalid_encoding: complain about invalid multibyte character
- *
- * note: len is remaining length of string, not length of character;
- * len must be greater than zero, as we always examine the first byte.
- */
-void
-report_invalid_encoding(int encoding, const char *mbstr, int len)
-{
-	int			l = pg_encoding_mblen(encoding, mbstr);
-	char		buf[8 * 5 + 1];
-	char	   *p = buf;
-	int			j,
-				jlimit;
-
-	jlimit = Min(l, len);
-	jlimit = Min(jlimit, 8);	/* prevent buffer overrun */
-
-	for (j = 0; j < jlimit; j++)
-	{
-		p += sprintf(p, "0x%02x", (unsigned char) mbstr[j]);
-		if (j < jlimit - 1)
-			p += sprintf(p, " ");
-	}
-
-	ereport(ERROR,
-			(errcode(ERRCODE_CHARACTER_NOT_IN_REPERTOIRE),
-			 errmsg("invalid byte sequence for encoding \"%s\": %s",
-					pg_enc2name_tbl[encoding].name,
-					buf)));
-}
-
-/*
- * report_untranslatable_char: complain about untranslatable character
- *
- * note: len is remaining length of string, not length of character;
- * len must be greater than zero, as we always examine the first byte.
- */
-void
-report_untranslatable_char(int src_encoding, int dest_encoding,
-						   const char *mbstr, int len)
-{
-	int			l = pg_encoding_mblen(src_encoding, mbstr);
-	char		buf[8 * 5 + 1];
-	char	   *p = buf;
-	int			j,
-				jlimit;
-
-	jlimit = Min(l, len);
-	jlimit = Min(jlimit, 8);	/* prevent buffer overrun */
-
-	for (j = 0; j < jlimit; j++)
-	{
-		p += sprintf(p, "0x%02x", (unsigned char) mbstr[j]);
-		if (j < jlimit - 1)
-			p += sprintf(p, " ");
-	}
-
-	ereport(ERROR,
-			(errcode(ERRCODE_UNTRANSLATABLE_CHARACTER),
-			 errmsg("character with byte sequence %s in encoding \"%s\" has no equivalent in encoding \"%s\"",
-					buf,
-					pg_enc2name_tbl[src_encoding].name,
-					pg_enc2name_tbl[dest_encoding].name)));
-}
-
-#endif							/* !FRONTEND */

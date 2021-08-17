@@ -7,7 +7,7 @@
  *		 miscellaneous useful functions
  *
  * The communication routines here are analogous to the ones in
- * backend/libpq/pqcomm.c and backend/libpq/pqcomprim.c, but operate
+ * backend/libpq/pqcomm.c and backend/libpq/pqformat.c, but operate
  * in the considerably different environment of the frontend libpq.
  * In particular, we work with a bare nonblock-mode socket, rather than
  * a stdio stream, so that we can avoid unwanted blocking of the application.
@@ -19,7 +19,7 @@
  * routines.
  *
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * IDENTIFICATION
@@ -50,14 +50,13 @@
 #include "libpq-fe.h"
 #include "libpq-int.h"
 #include "mb/pg_wchar.h"
-#include "port/pg_bswap.h"
 #include "pg_config_paths.h"
-
+#include "port/pg_bswap.h"
 
 static int	pqPutMsgBytes(const void *buf, size_t len, PGconn *conn);
 static int	pqSendSome(PGconn *conn, int len);
-static int pqSocketCheck(PGconn *conn, int forRead, int forWrite,
-			  time_t end_time);
+static int	pqSocketCheck(PGconn *conn, int forRead, int forWrite,
+						  time_t end_time);
 static int	pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time);
 
 /*
@@ -803,8 +802,7 @@ retry4:
 	 */
 definitelyEOF:
 	printfPQExpBuffer(&conn->errorMessage,
-					  libpq_gettext(
-									"server closed the connection unexpectedly\n"
+					  libpq_gettext("server closed the connection unexpectedly\n"
 									"\tThis probably means the server terminated abnormally\n"
 									"\tbefore or while processing the request.\n"));
 
@@ -824,6 +822,17 @@ definitelyFailed:
  *
  * Return 0 on success, -1 on failure and 1 when not all data could be sent
  * because the socket would block and the connection is non-blocking.
+ *
+ * Note that this is also responsible for consuming data from the socket
+ * (putting it in conn->inBuffer) in any situation where we can't send
+ * all the specified data immediately.
+ *
+ * Upon write failure, conn->write_failed is set and the error message is
+ * saved in conn->write_err_msg, but we clear the output buffer and return
+ * zero anyway; this is because callers should soldier on until it's possible
+ * to read from the server and check for an error message.  write_err_msg
+ * should be reported only when we are unable to obtain a server error first.
+ * (Thus, a -1 result is returned only for an internal *read* failure.)
  */
 static int
 pqSendSome(PGconn *conn, int len)
@@ -832,13 +841,40 @@ pqSendSome(PGconn *conn, int len)
 	int			remaining = conn->outCount;
 	int			result = 0;
 
+	/*
+	 * If we already had a write failure, we will never again try to send data
+	 * on that connection.  Even if the kernel would let us, we've probably
+	 * lost message boundary sync with the server.  conn->write_failed
+	 * therefore persists until the connection is reset, and we just discard
+	 * all data presented to be written.  However, as long as we still have a
+	 * valid socket, we should continue to absorb data from the backend, so
+	 * that we can collect any final error messages.
+	 */
+	if (conn->write_failed)
+	{
+		/* conn->write_err_msg should be set up already */
+		conn->outCount = 0;
+		/* Absorb input data if any, and detect socket closure */
+		if (conn->sock != PGINVALID_SOCKET)
+		{
+			if (pqReadData(conn) < 0)
+				return -1;
+		}
+		return 0;
+	}
+
 	if (conn->sock == PGINVALID_SOCKET)
 	{
 		printfPQExpBuffer(&conn->errorMessage,
 						  libpq_gettext("connection not open\n"));
+		conn->write_failed = true;
+		/* Transfer error message to conn->write_err_msg, if possible */
+		/* (strdup failure is OK, we'll cope later) */
+		conn->write_err_msg = strdup(conn->errorMessage.data);
+		resetPQExpBuffer(&conn->errorMessage);
 		/* Discard queued data; no chance it'll ever be sent */
 		conn->outCount = 0;
-		return -1;
+		return 0;
 	}
 
 	/* while there's still data to send */
@@ -876,17 +912,31 @@ pqSendSome(PGconn *conn, int len)
 
 				default:
 					/* pqsecure_write set the error message for us */
+					conn->write_failed = true;
 
 					/*
-					 * We used to close the socket here, but that's a bad idea
-					 * since there might be unread data waiting (typically, a
-					 * NOTICE message from the backend telling us it's
-					 * committing hara-kiri...).  Leave the socket open until
-					 * pqReadData finds no more data can be read.  But abandon
-					 * attempt to send data.
+					 * Transfer error message to conn->write_err_msg, if
+					 * possible (strdup failure is OK, we'll cope later).
+					 *
+					 * Note: this assumes that pqsecure_write and its children
+					 * will overwrite not append to conn->errorMessage.  If
+					 * that's ever changed, we could remember the length of
+					 * conn->errorMessage at entry to this routine, and then
+					 * save and delete just what was appended.
 					 */
+					conn->write_err_msg = strdup(conn->errorMessage.data);
+					resetPQExpBuffer(&conn->errorMessage);
+
+					/* Discard queued data; no chance it'll ever be sent */
 					conn->outCount = 0;
-					return -1;
+
+					/* Absorb input data if any, and detect socket closure */
+					if (conn->sock != PGINVALID_SOCKET)
+					{
+						if (pqReadData(conn) < 0)
+							return -1;
+					}
+					return 0;
 			}
 		}
 		else
@@ -921,6 +971,9 @@ pqSendSome(PGconn *conn, int len)
 			 * can do, and works pretty well in practice.  (The documentation
 			 * used to say that you only need to wait for write-ready, so
 			 * there are still plenty of applications like that out there.)
+			 *
+			 * Note that errors here don't result in write_failed becoming
+			 * set.
 			 */
 			if (pqReadData(conn) < 0)
 			{
@@ -956,6 +1009,7 @@ pqSendSome(PGconn *conn, int len)
  *
  * Return 0 on success, -1 on failure and 1 when not all data could be sent
  * because the socket would block and the connection is non-blocking.
+ * (See pqSendSome comments about how failure should be handled.)
  */
 int
 pqFlush(PGconn *conn)
@@ -1071,7 +1125,7 @@ pqSocketCheck(PGconn *conn, int forRead, int forWrite, time_t end_time)
 
 	if (result < 0)
 	{
-		char		sebuf[256];
+		char		sebuf[PG_STRERROR_R_BUFLEN];
 
 		printfPQExpBuffer(&conn->errorMessage,
 						  libpq_gettext("select() failed: %s\n"),
@@ -1215,7 +1269,7 @@ PQenv2encoding(void)
 #ifdef ENABLE_NLS
 
 static void
-libpq_binddomain()
+libpq_binddomain(void)
 {
 	static bool already_bound = false;
 

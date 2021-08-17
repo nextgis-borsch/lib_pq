@@ -28,18 +28,19 @@
 ################################################################################
 
 function(check_version major minor release build)
-    set(filename "${CMAKE_SOURCE_DIR}/src/interfaces/libpq/libpq.rc.in")
+    set(filename "${CMAKE_SOURCE_DIR}/configure.in")
     file(READ ${filename} FILE_CONTENTS)
-    string(REGEX MATCH "FILEVERSION[ \t]+[0-9]+,[0-9]+,[0-9]+,[0-9]+" VERSION_STR ${FILE_CONTENTS})
+    string(REGEX MATCH "AC_INIT\\(\\[[A-Za-z]+\\], *\\[[0-9]+\\.[0-9]+\\.?[0-9]*\\]" VERSION_STR ${FILE_CONTENTS})
     string(REGEX MATCHALL "[0-9]+" VERSIONS_LIST ${VERSION_STR})
+
+    list(APPEND VERSIONS_LIST 0) #if the VERSION_LIST size == 2
     list(GET VERSIONS_LIST 0 VER_MAJOR)
-    list(GET VERSIONS_LIST 2 VER_MINOR)
-    list(GET VERSIONS_LIST 3 VER_RELEASE)
-    # list(GET VERSIONS_LIST 2 VER_BUILD)
+    list(GET VERSIONS_LIST 1 VER_MINOR)
+    list(GET VERSIONS_LIST 2 VER_RELEASE)
+
     set(${major} ${VER_MAJOR} PARENT_SCOPE)
     set(${minor} ${VER_MINOR} PARENT_SCOPE)
     set(${release} ${VER_RELEASE} PARENT_SCOPE)
-    # set(${build} ${VER_BUILD} PARENT_SCOPE)
 
     # Store version string in file for installer needs
     file(TIMESTAMP ${filename} VERSION_DATETIME "%Y-%m-%d %H:%M:%S" UTC)

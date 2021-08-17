@@ -3,7 +3,7 @@
  * fe-protocol2.c
  *	  functions that are specific to frontend/backend protocol version 2
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
@@ -17,11 +17,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 
-#include "libpq-fe.h"
-#include "libpq-int.h"
-#include "port/pg_bswap.h"
-
-
 #ifdef WIN32
 #include "win32.h"
 #else
@@ -31,6 +26,9 @@
 #endif
 #endif
 
+#include "libpq-fe.h"
+#include "libpq-int.h"
+#include "port/pg_bswap.h"
 
 static int	getRowDescriptions(PGconn *conn);
 static int	getAnotherTuple(PGconn *conn, bool binary);
@@ -86,10 +84,7 @@ pqSetenvPoll(PGconn *conn)
 
 		default:
 			printfPQExpBuffer(&conn->errorMessage,
-							  libpq_gettext(
-											"invalid setenv state %c, "
-											"probably indicative of memory corruption\n"
-											),
+							  libpq_gettext("invalid setenv state %c, probably indicative of memory corruption\n"),
 							  conn->setenv_state);
 			goto error_return;
 	}
@@ -628,8 +623,7 @@ pqParseInput2(PGconn *conn)
 					 */
 				default:
 					printfPQExpBuffer(&conn->errorMessage,
-									  libpq_gettext(
-													"unexpected response from server; first received character was \"%c\"\n"),
+									  libpq_gettext("unexpected response from server; first received character was \"%c\"\n"),
 									  id);
 					/* build an error result holding the error message */
 					pqSaveErrorResult(conn);
@@ -1450,42 +1444,30 @@ pqFunctionCall2(PGconn *conn, Oid fnid,
 		pqPutInt(fnid, 4, conn) != 0 || /* function id */
 		pqPutInt(nargs, 4, conn) != 0)	/* # of args */
 	{
-		pqHandleSendFailure(conn);
+		/* error message should be set up already */
 		return NULL;
 	}
 
 	for (i = 0; i < nargs; ++i)
 	{							/* len.int4 + contents	   */
 		if (pqPutInt(args[i].len, 4, conn))
-		{
-			pqHandleSendFailure(conn);
 			return NULL;
-		}
 
 		if (args[i].isint)
 		{
 			if (pqPutInt(args[i].u.integer, 4, conn))
-			{
-				pqHandleSendFailure(conn);
 				return NULL;
-			}
 		}
 		else
 		{
 			if (pqPutnchar((char *) args[i].u.ptr, args[i].len, conn))
-			{
-				pqHandleSendFailure(conn);
 				return NULL;
-			}
 		}
 	}
 
 	if (pqPutMsgEnd(conn) < 0 ||
 		pqFlush(conn))
-	{
-		pqHandleSendFailure(conn);
 		return NULL;
-	}
 
 	for (;;)
 	{

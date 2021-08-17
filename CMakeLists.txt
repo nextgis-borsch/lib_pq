@@ -264,6 +264,20 @@ set(PUBLIC_HDRS_PQ
     ${PROJECT_SOURCE_DIR}/src/include/libpq/libpq-fs.h
 )
 
+check_c_source_compiles(
+    "
+        int f(int * __restrict a);
+        int main(void) {return 0;}
+    "
+    HAVE_RESTRICT
+)
+
+if(HAVE_RESTRICT)
+    add_definitions(-Dpg_restrict=__restrict)
+else()
+    add_definitions(-Dpg_restrict=)
+endif()
+
 add_subdirectory(src)
 ###add_subdirectory(contrib)
 

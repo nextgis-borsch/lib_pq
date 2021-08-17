@@ -6,7 +6,7 @@
  * Note this is read in MinGW as well as native Windows builds,
  * but not in Cygwin builds.
  *
- * Portions Copyright (c) 1996-2018, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1996-2020, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  * src/include/port/win32_port.h
@@ -50,7 +50,6 @@
 #include <process.h>
 #include <signal.h>
 #include <direct.h>
-#include <sys/utime.h>			/* for non-unicode version */
 #undef near
 #include <sys/stat.h>			/* needed before sys/stat hacking below */
 
@@ -103,11 +102,11 @@
  *	For WIN32, there is no wait() call so there are no wait() macros
  *	to interpret the return value of system().  Instead, system()
  *	return values < 0x100 are used for exit() termination, and higher
- *	values are used to indicated non-exit() termination, which is
+ *	values are used to indicate non-exit() termination, which is
  *	similar to a unix-style signal exit (think SIGSEGV ==
  *	STATUS_ACCESS_VIOLATION).  Return values are broken up into groups:
  *
- *	http://msdn2.microsoft.com/en-gb/library/aa489609.aspx
+ *	https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/using-ntstatus-values
  *
  *		NT_SUCCESS			0 - 0x3FFFFFFF
  *		NT_INFORMATION		0x40000000 - 0x7FFFFFFF
@@ -121,22 +120,13 @@
  *
  *		Wine (URL used in our error messages) -
  *			http://source.winehq.org/source/include/ntstatus.h
- *		Descriptions - http://www.comp.nus.edu.sg/~wuyongzh/my_doc/ntstatus.txt
- *		MS SDK - http://www.nologs.com/ntstatus.html
+ *		Descriptions -
+ *			https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-erref/596a1078-e883-4972-9bbc-49e60bebca55
  *
- *	It seems the exception lists are in both ntstatus.h and winnt.h, but
- *	ntstatus.h has a more comprehensive list, and it only contains
- *	exception values, rather than winnt, which contains lots of other
- *	things:
- *
- *		http://www.microsoft.com/msj/0197/exception/exception.aspx
- *
- *		The ExceptionCode parameter is the number that the operating system
- *		assigned to the exception. You can see a list of various exception codes
- *		in WINNT.H by searching for #defines that start with "STATUS_". For
- *		example, the code for the all-too-familiar STATUS_ACCESS_VIOLATION is
- *		0xC0000005. A more complete set of exception codes can be found in
- *		NTSTATUS.H from the Windows NT DDK.
+ *	The comprehensive exception list is included in ntstatus.h from the
+ *	Windows	Driver Kit (WDK).  A subset of the list is also included in
+ *	winnt.h from the Windows SDK.  Defining WIN32_NO_STATUS before including
+ *	windows.h helps to avoid any conflicts.
  *
  *	Some day we might want to print descriptions for the most common
  *	exceptions, rather than printing an include file name.  We could use
@@ -171,8 +161,6 @@
 #define SIGTSTP				18
 #define SIGCONT				19
 #define SIGCHLD				20
-#define SIGTTIN				21
-#define SIGTTOU				22	/* Same as SIGABRT -- no problem, I hope */
 #define SIGWINCH			28
 #define SIGUSR1				30
 #define SIGUSR2				31
@@ -204,6 +192,7 @@ int			setitimer(int which, const struct itimerval *value, struct itimerval *oval
  * with 64-bit offsets.
  */
 #define pgoff_t __int64
+
 #ifdef _MSC_VER
 #define fseeko(stream, offset, origin) _fseeki64(stream, offset, origin)
 #define ftello(stream) _ftelli64(stream)
@@ -322,8 +311,8 @@ extern int	pgwin32_safestat(const char *path, struct stat *buf);
  * Supplement to <errno.h>.
  *
  * We redefine network-related Berkeley error symbols as the corresponding WSA
- * constants.  This allows elog.c to recognize them as being in the Winsock
- * error code range and pass them off to pgwin32_socket_strerror(), since
+ * constants. This allows strerror.c to recognize them as being in the Winsock
+ * error code range and pass them off to win32_socket_strerror(), since
  * Windows' version of plain strerror() won't cope.  Note that this will break
  * if these names are used for anything else besides Windows Sockets errors.
  * See TranslateSocketError() when changing this list.
@@ -453,11 +442,9 @@ int			pgwin32_bind(SOCKET s, struct sockaddr *addr, int addrlen);
 int			pgwin32_listen(SOCKET s, int backlog);
 SOCKET		pgwin32_accept(SOCKET s, struct sockaddr *addr, int *addrlen);
 int			pgwin32_connect(SOCKET s, const struct sockaddr *name, int namelen);
-int			pgwin32_select(int nfds, fd_set *readfs, fd_set *writefds, fd_set *exceptfds, const struct timeval *timeout);
+int			pgwin32_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timeval *timeout);
 int			pgwin32_recv(SOCKET s, char *buf, int len, int flags);
 int			pgwin32_send(SOCKET s, const void *buf, int len, int flags);
-
-const char *pgwin32_socket_strerror(int err);
 int			pgwin32_waitforsinglesocket(SOCKET s, int what, int timeout);
 
 extern int	pgwin32_noblock;
@@ -502,14 +489,28 @@ typedef unsigned short mode_t;
 #define W_OK 2
 #define R_OK 4
 
-#if (_MSC_VER < 1800)
-#define isinf(x) ((_fpclass(x) == _FPCLASS_PINF) || (_fpclass(x) == _FPCLASS_NINF))
-#define isnan(x) _isnan(x)
-#endif
-
 /* Pulled from Makefile.port in MinGW */
 #define DLSUFFIX ".dll"
 
 #endif							/* _MSC_VER */
+
+#if (defined(_MSC_VER) && (_MSC_VER < 1900)) || \
+	defined(__MINGW32__) || defined(__MINGW64__)
+/*
+ * VS2013 has a strtof() that seems to give correct answers for valid input,
+ * even on the rounding edge cases, but which doesn't handle out-of-range
+ * input correctly. Work around that.
+ *
+ * Mingw claims to have a strtof, and my reading of its source code suggests
+ * that it ought to work (and not need this hack), but the regression test
+ * results disagree with me; whether this is a version issue or not is not
+ * clear. However, using our wrapper (and the misrounded-input variant file,
+ * already required for supporting ancient systems) can't make things any
+ * worse, except for a tiny performance loss when reading zeros.
+ *
+ * See also cygwin.h for another instance of this.
+ */
+#define HAVE_BUGGY_STRTOF 1
+#endif
 
 #endif							/* PG_WIN32_PORT_H */

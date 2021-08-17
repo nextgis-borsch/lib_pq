@@ -35,6 +35,10 @@ set(pq_SRCS
 	${PORT_DIR}/pqsignal.c
     ${PORT_DIR}/thread.c
     ${PORT_DIR}/strnlen.c
+    ${PORT_DIR}/snprintf.c
+    ${PORT_DIR}/strerror.c
+    ${PORT_DIR}/explicit_bzero.c
+    ${PORT_DIR}/pg_strong_random.c
 
     ${PROJECT_SOURCE_DIR}/src/common/base64.c
 	${PROJECT_SOURCE_DIR}/src/common/ip.c
@@ -43,9 +47,10 @@ set(pq_SRCS
 	${PROJECT_SOURCE_DIR}/src/common/saslprep.c
     ${PROJECT_SOURCE_DIR}/src/common/unicode_norm.c
     ${PROJECT_SOURCE_DIR}/src/common/file_perm.c
-
-	${MB_UTILS_BACKEND_DIR}/encnames.c
-	${MB_UTILS_BACKEND_DIR}/wchar.c
+    ${PROJECT_SOURCE_DIR}/src/common/encnames.c
+    ${PROJECT_SOURCE_DIR}/src/common/wchar.c
+    ${PROJECT_SOURCE_DIR}/src/common/link-canary.c
+    ${PROJECT_SOURCE_DIR}/src/common/string.c
 
 	${fallback_SRCS}
 	${pq_ssl_SRCS}
@@ -60,13 +65,6 @@ if(ANDROID OR IOS)
 endif()
 
 if(WIN32)
-	configure_file(libpq.rc.in ${CMAKE_CURRENT_BINARY_DIR}/libpq.rc)
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
-        set(pq_SRCS ${pq_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/libpqddll.def)
-    else()
-        set(pq_SRCS ${pq_SRCS} ${CMAKE_CURRENT_SOURCE_DIR}/libpqdll.def)
-    endif()
-
 	set(pq_SRCS ${pq_SRCS}
 		win32.c
 		${PORT_DIR}/win32error.c
@@ -78,7 +76,6 @@ if(WIN32)
 		${PORT_DIR}/thread.c
 		${PORT_DIR}/getaddrinfo.c
         ${PORT_DIR}/gettimeofday.c
-		${CMAKE_CURRENT_BINARY_DIR}/libpq.rc
 	)
 	if (Threads_FOUND)
 		set(pq_SRCS ${pq_SRCS} pthread-win32.c)
@@ -91,6 +88,8 @@ set(ALL_PUBLIC_HDRS_PQ ${FINAL_HEADERS} ${PUBLIC_HDRS} ${PUBLIC_HDRS_PQ})
 if(MSVC_VERSION LESS 1900)
     add_definitions(-Dinline=__inline)
 endif()
+
+add_definitions(-DUSE_OPENSSL_RANDOM)
 
 # TODO:
 #set_target_properties(pq PROPERTIES LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports.list")

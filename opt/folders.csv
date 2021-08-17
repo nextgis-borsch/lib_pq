@@ -1,4 +1,4 @@
-.,.,,"COPYRIGHT,HISTORY,INSTALL,README"
+.,.,,"COPYRIGHT,HISTORY,INSTALL,README,configure.in"
 config,config,skip,
 contrib,contrib,skip,
 src,src,,DEVELOPERS
@@ -23,7 +23,7 @@ src/include/port/win32/sys,src/include/port/win32/sys,,h
 src/include/port/win32_msvc,src/include/port/win32_msvc,,h
 src/include/port/win32_msvc/sys,src/include/port/win32_msvc/sys,,h
 src/interfaces/ecpg,src/interfaces/ecpg,skip,
-src/interfaces/libpq,src/interfaces/libpq,,"c,h,def,in"
+src/interfaces/libpq,src/interfaces/libpq,,"c,h"
 src/interfaces/libpq/po,src/interfaces/libpq/po,skip,
 src/interfaces/libpq/test,src/interfaces/libpq/test,skip,
 src/makefiles,src/makefiles,skip,
