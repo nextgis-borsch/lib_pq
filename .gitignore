@@ -33,6 +33,7 @@ lib*dll.def
 lib*.pc
 
 # Local excludes in root directory
+/build/
 /GNUmakefile
 /config.cache
 /config.log
